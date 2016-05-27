@@ -6,7 +6,7 @@
 #include <kdl_conversions/kdl_msg.h>
 #include <qb_legs/qb_legs_srv.h>
 
-qb_legs_ik qbik;
+qb_legs_ik* qbik;
 
 void arrayToJntArray(const std::vector<double>& in, KDL::JntArray& out)
 {
@@ -24,37 +24,61 @@ void jntArrayToArray(const KDL::JntArray& in, std::vector<double>& out)
 
 bool qb_srv_handler(qb_legs::qb_legs_srv::Request& req, qb_legs::qb_legs_srv::Response& res)
 {
+    KDL::Frame f(KDL::Frame::Identity());
+    int nj = req.q_in.size();
+    KDL::JntArray j_in(nj),j_out(nj),jzero(nj);
+    arrayToJntArray(req.q_in,j_in);
     
+    if(req.command == "ik")
+    {
+        tf::poseMsgToKDL(req.pose_in,f);
+        res.ok = qbik->get_ik(req.chain_name,f,j_in,j_out,req.publish);
+        jntArrayToArray(j_out,res.q_out);
+    }
+    else if(req.command == "fk")
+    {
+        res.ok = qbik->get_fk(req.chain_name,j_in,f,req.publish);
+        tf::poseKDLToMsg(f,res.pose_out);
+    }
+    else if(req.command == "grav")
+    {
+        res.ok = qbik->get_gravity(req.chain_name,j_in,j_out,req.publish);
+        jntArrayToArray(j_out,res.tau);
+    }
+    else
+    {
+        ROS_ERROR_STREAM(__func__ << " : unrecognized command \'" << req.command << "\'...");
+        tf::poseKDLToMsg(f,res.pose_out);
+        res.q_out.clear();
+        res.tau.clear();
+        res.ok = false;
+    }
+    if(!res.ok)
+        ROS_ERROR_STREAM(__func__ << " : There was an error!");
+    
+    return res.ok;
 }
 
 int main(int argc, char** argv)
 {
-    ros::init(argc,argv,"qb_legs_node");
+    while(!ros::isInitialized())
+    {
+        ros::init(argc,argv,"qb_legs_node");
+    }
     ros::NodeHandle nh;
     ros::AsyncSpinner aspin(1);
     aspin.start();
     
+    qbik = new qb_legs_ik;
+    
     ros::ServiceServer service_srv;
     service_srv = nh.advertiseService("qb_legs_srv", &qb_srv_handler); //, this);
     
-    KDL::JntArray q_in(4),q_out(4),tau(4);
-    q_in(0) = M_PI/2.0;
-    q_in(1) = 0.0*(-M_PI/2.0);
-    
-    KDL::Frame ee;
-    bool publish = true;
-    qbik.get_fk("lfoot_torso",q_in,ee,publish);
-    
-    qbik.get_gravity("lfoot_torso",q_in,tau);
-    
-    std::cout << "q_in: " << q_in << std::endl;
-    std::cout << "ee_pose: " << ee << std::endl;
-    std::cout << "tau: " << tau << std::endl;
+    std::cout << "qb_legs_node running!!!" << std::endl;
     
     ros::Rate rate(0.1);
     while(ros::ok())
     {
-        std::cout << "I'm running in the main...!" << std::endl;
         rate.sleep();
     }
     return 0;
