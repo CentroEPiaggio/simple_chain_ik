@@ -1,5 +1,4 @@
 #include "qb_legs/qb_legs_ik.h"
-#include <ros/ros.h>
 #include <vector>
 #include <kdl_conversions/kdl_msg.h>
 #include <math.h>
@@ -24,7 +23,6 @@ double eps = EPS;
 
 qb_legs_ik::qb_legs_ik()
 {
-    ros::NodeHandle nh;
     std::string global_name, relative_name, default_param;
     if (nh.getParam("/robot_description", global_name)) //The checks here are redundant, but they may provide more debug info
     {
@@ -60,6 +58,8 @@ qb_legs_ik::qb_legs_ik()
         ROS_ERROR_STREAM(CLASS_NAMESPACE << "constructor : cannot find external parameters, did you load the YAML file?");
         abort();
     }
+    
+    joint_state_pub = nh.advertise<sensor_msgs::JointState>("qb_legs/joint_states",10);
     
     KDL::Chain temp;
     #if DEBUG
@@ -148,16 +148,8 @@ void qb_legs_ik::initialize_solvers(chain_and_solvers* container) const
     container->iksolver= new KDL::ChainIkSolverPos_NR_JL(container->chain,container->q_min,container->q_max,*container->fksolver,*container->ikvelsolver,max_iter,eps);
 }
 
-bool qb_legs_ik::publishConfig(const std::vector< std::string >& joint_names, const KDL::JntArray& q) const
+bool qb_legs_ik::publishConfig(const std::vector< std::string >& joint_names, const KDL::JntArray& q)
 {
-    static ros::Publisher joint_state_pub_;
-    static bool pub_initialized(false);
-    static ros::NodeHandle node;
-    if (!pub_initialized)
-    {
-        joint_state_pub_ = node.advertise<sensor_msgs::JointState>("qb_legs/joint_states",10);
-        pub_initialized = true;
-    }
     sensor_msgs::JointState js_msg;
     js_msg.name = joint_names;
     js_msg.header.stamp = ros::Time::now();
@@ -166,7 +158,7 @@ bool qb_legs_ik::publishConfig(const std::vector< std::string >& joint_names, co
     {
         js_msg.position.push_back(q(i));
     }
-    joint_state_pub_.publish(js_msg);
+    joint_state_pub.publish(js_msg);
     
     return true;
 }
