@@ -2,7 +2,6 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
 	<!-- we need the definition of the qb_move unit -->
-	<!-- <xacro:include filename="$(find qbmove_description)/model/qb_move.urdf.xacro" /> -->
 	<xacro:include filename="$(find qb_legs)/model/qb_utility_models.urdf.xacro" />
 
 	<xacro:property name="pi" value="3.1415926535897931" />
@@ -53,7 +52,7 @@
 	<xacro:macro name="qb_legs" params="parent name *origin">
 		<!-- macro for the robot -->
 
-		<!-- dummy link -->
+		<!-- pelvis link, attached to the external link -->
 		<joint name="${name}_dummy_joint" type="fixed" >
 			<insert_block name="origin" />
 			<parent link="${parent}" />
@@ -72,8 +71,6 @@
 				</geometry>
 			</visual>
 		</link>
-
-		<!-- macro for each cube -->
 
 		<!-- torso -->
 		<xacro:qb_move parent="${name}_pelvis_link" name="${name}_7" position="0 0 ${(flat_shaft/2.0+cube_size/2.0)/scale_f}" orientation="${- pi / 2} 0 0"/>
@@ -100,75 +97,9 @@
 
 		<!-- left leg -->
 		<xacro:qb_single_leg parent="${name}_pelvis_link" name="${name}" side="left" isLeft="1" high_joint="3" mid_joint="2" low_joint="1" position="0 ${(legs_width-cube_size)/scale_f/2.0} ${-(flat_shaft/2.0+cube_size/2.0)/scale_f}" orientation="${-pi/2} 0 0"/>
-		<!-- <xacro:qb_move parent="${name}_pelvis_link" name="${name}_3" position="0 ${(legs_width-cube_size)/scale_f/2.0} ${-(flat_shaft/2.0+cube_size/2.0)/scale_f}" orientation="${-pi/2} 0 0"/>
-		<xacro:rotating_c2_shaft parent="${name}_3" name="${name}_left_high_shaft" position="0 0 0" orientation="${pi/2} 0 0"/>
-		<xacro:qb_move parent="${name}_left_high_shaft" name="${name}_2" position="0 0 ${-extra_after_c2_flange/scale_f}" orientation="${-pi/2} 0 0"/>
-		<xacro:rotating_c_shaft parent="${name}_2" name="${name}_left_mid_shaft" position="0 0 0" orientation="${pi/2} 0 0"/>
-		<xacro:qb_empty parent="${name}_left_mid_shaft" name="${name}_left_empty" position="0 0 0" orientation="${-pi/2} 0 0"/>
-		<xacro:fixed_c_shaft parent="${name}_left_empty" name="${name}_left_low_shaft" position="0 0 0" orientation="${pi/2} 0 0"/>
-		<xacro:qb_move_reverse parent="${name}_left_low_shaft" name="${name}_1" position="0 0 ${-extra_after_c2_flange/scale_f}" orientation="${-pi/2} 0 0"/>
-
-		<joint name="${name}_left_foot_joint" type="fixed">
-			<origin xyz="0 ${foot_height/scale_f} 0" rpy="${pi/2} 0 0"/>
-			<parent link="${name}_1"/>
-			<child link="${name}_left_foot"/>
-		</joint>
-		<link name="${name}_left_foot">
-			<visual>
-				<origin xyz="0 0 ${foot_thickness/scale_f/2.0}" rpy="0 0 0"/>
-				<geometry>
-					<box size="${140/scale_f} ${cube_size/scale_f} ${foot_thickness/scale_f}"/>
-				</geometry>
-			</visual>
-		</link> -->
 
 		<!-- right leg -->
 		<xacro:qb_single_leg parent="${name}_pelvis_link" name="${name}" side="right" isLeft="-1" high_joint="4" mid_joint="5" low_joint="6" position="0 ${-(legs_width-cube_size)/scale_f/2.0} ${-(flat_shaft/2.0+cube_size/2.0)/scale_f}" orientation="${pi/2} 0 0"/>
-
-		<!-- this is the same as the right leg, changing names and multiplying all roll angles by -1 -->
-		<!-- I'm keeping it separate for numbering convention -->
-		<!-- <xacro:qb_move parent="${name}_pelvis_link" name="${name}_4" position="0 ${-(legs_width-cube_size)/scale_f/2.0} ${-(flat_shaft/2.0+cube_size/2.0)/scale_f}" orientation="${pi/2} 0 0"/>
-		<xacro:rotating_c2_shaft parent="${name}_4" name="${name}_right_high_shaft" position="0 0 0" orientation="${-pi/2} 0 0"/>
-		<xacro:qb_move parent="${name}_right_high_shaft" name="${name}_5" position="0 0 ${-extra_after_c2_flange/scale_f}" orientation="${pi/2} 0 0"/>
-		<xacro:rotating_c_shaft parent="${name}_5" name="${name}_right_mid_shaft" position="0 0 0" orientation="${-pi/2} 0 0"/>
-		<xacro:qb_empty parent="${name}_right_mid_shaft" name="${name}_right_empty" position="0 0 0" orientation="${pi/2} 0 0"/>
-		<xacro:fixed_c_shaft parent="${name}_right_empty" name="${name}_right_low_shaft" position="0 0 0" orientation="${-pi/2} 0 0"/>
-		<xacro:qb_move_reverse parent="${name}_right_low_shaft" name="${name}_6" position="0 0 ${-extra_after_c2_flange/scale_f}" orientation="${pi/2} 0 0"/>
-
-		<joint name="${name}_right_foot_joint" type="fixed">
-			<origin xyz="0 ${-foot_height/scale_f} 0" rpy="${-pi/2} 0 0"/>
-			<parent link="${name}_6"/>
-			<child link="${name}_right_foot"/>
-		</joint>
-		<link name="${name}_right_foot">
-			<visual>
-				<origin xyz="0 0 ${foot_thickness/scale_f/2.0}" rpy="0 0 0"/>
-				<geometry>
-					<box size="${140/scale_f} ${cube_size/scale_f} ${foot_thickness/scale_f}"/>
-				</geometry>
-			</visual>
-		</link> -->
-
-<!-- 		<xacro:qb_empty parent="${name}_upper_shaft" name="${name}_empty">
-			<origin position="0 0 0" orientation="0 0 0"/>
-		</xacro:qb_empty> -->
-			<!-- <origin position="0 0 ${one_flange/scale_f}" orientation="0 0 0"/> -->
-
-		<!-- if the fixed joint is a problem while planning, comment the following one -->
-		<!-- <xacro:qb_move parent="${name}_1" name="${name}_1bis" position="0 0 ${one_flange/scale_f}" orientation="0 ${pi / 2} 0" />
-		<xacro:qb_move parent="${name}_1" name="${name}_2" position="0 0 ${one_flange/scale_f+two_flanges/scale_f}" orientation="0 0 0" /> -->
-		<!-- right arm -->
-		<!-- <xacro:qb_move parent="${name}_1" name="${name}_20" position="0 ${- two_flanges/scale_f} ${one_flange/scale_f+two_flanges/scale_f}" orientation="0 ${- pi / 2} ${pi / 2}" />
-		<xacro:qb_move parent="${name}_20" name="${name}_21" position="0 0 ${one_flange/scale_f}" orientation="${pi / 2} 0 0" />
-		<xacro:qb_move parent="${name}_21" name="${name}_22" position="${- c_flange/scale_f} 0 0" orientation="0 ${- pi / 2} 0" />
-		<xacro:qb_move parent="${name}_22" name="${name}_23" position="0 0 ${one_flange/scale_f}" orientation="${pi / 2} 0 0" />
-		<xacro:qb_move parent="${name}_23" name="${name}_24" position="0 ${c_flange/scale_f} 0" orientation="0 0 0" /> -->
-		<!-- left arm -->
-		<!-- <xacro:qb_move parent="${name}_1" name="${name}_10" position="0 ${two_flanges/scale_f} ${one_flange/scale_f+two_flanges/scale_f}" orientation="0 ${- pi / 2} ${- pi / 2}" />
-		<xacro:qb_move parent="${name}_10" name="${name}_11" position="0 0 ${one_flange/scale_f}" orientation="${- pi / 2} 0 0" />
-		<xacro:qb_move parent="${name}_11" name="${name}_12" position="${- c_flange/scale_f} 0 0" orientation="0 ${- pi / 2} 0" />
-		<xacro:qb_move parent="${name}_12" name="${name}_13" position="0 0 ${one_flange/scale_f}" orientation="${pi / 2} 0 0" />
-		<xacro:qb_move parent="${name}_13" name="${name}_14" position="0 ${c_flange/scale_f} 0" orientation="${pi} 0 0" /> -->
 
 	</xacro:macro>
 
