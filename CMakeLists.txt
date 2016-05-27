@@ -24,6 +24,8 @@ find_package(catkin REQUIRED COMPONENTS
 	kdl_conversions
 	kdl_parser
 	dual_manipulation_shared
+	std_msgs
+	geometry_msgs
 	message_generation
 	# tf
 	# orocos_kdl
@@ -83,10 +85,11 @@ add_service_files(
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs  # Or other packages containing msgs
-# )
+generate_messages(
+  DEPENDENCIES
+  std_msgs  # Or other packages containing msgs
+  geometry_msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##

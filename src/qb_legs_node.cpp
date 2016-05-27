@@ -4,6 +4,7 @@
 #include <kdl/kinfam_io.hpp>
 #include <kdl/frames_io.hpp>
 #include <kdl_conversions/kdl_msg.h>
+#include <qb_legs/qb_legs_srv.h>
 
 qb_legs_ik qbik;
 
@@ -21,7 +22,7 @@ void jntArrayToArray(const KDL::JntArray& in, std::vector<double>& out)
         out[i] = in(i);
 }
 
-void qb_srv_handler()
+bool qb_srv_handler(qb_legs::qb_legs_srv::Request& req, qb_legs::qb_legs_srv::Response& res)
 {
     
 }
@@ -32,6 +33,9 @@ int main(int argc, char** argv)
     ros::NodeHandle nh;
     ros::AsyncSpinner aspin(1);
     aspin.start();
+    
+    ros::ServiceServer service_srv;
+    service_srv = nh.advertiseService("qb_legs_srv", &qb_srv_handler); //, this);
     
     KDL::JntArray q_in(4),q_out(4),tau(4);
     q_in(0) = M_PI/2.0;
