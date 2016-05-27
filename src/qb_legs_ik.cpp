@@ -196,3 +196,48 @@ bool qb_legs_ik::normalizePoses(std::vector< geometry_msgs::Pose >& poses)
     
     return ok;
 }
+
+bool qb_legs_ik::get_ik(const std::string& chain, const KDL::Frame& ee, const KDL::JntArray& q_init, KDL::JntArray& q_out, bool publish)
+{
+    int res = solvers.at(chain).iksolver->CartToJnt(q_init,ee,q_out);
+    
+    if(publish)
+    {
+        publishConfig(solvers.at(chain).joint_names,q_out);
+    }
+    
+    return (res>=0);
+}
+
+bool qb_legs_ik::get_fk(const std::string& chain, const KDL::JntArray& j, KDL::Frame& ee, bool publish)
+{
+    int res = solvers.at(chain).fksolver->JntToCart(j,ee);
+    
+    if(publish)
+    {
+        publishConfig(solvers.at(chain).joint_names,j);
+    }
+    
+    return (res>=0);
+}
+
+bool qb_legs_ik::get_gravity(const std::string& chain, const KDL::JntArray& j, KDL::JntArray& tau, bool publish)
+{
+    int nj = solvers.at(chain).chain.getNrOfJoints();
+    KDL::JntArray qzero(nj);
+    KDL::Wrenches f_ext(solvers.at(chain).chain.getNrOfSegments(),KDL::Wrench(KDL::Vector::Zero(),KDL::Vector::Zero()));
+
+    int res = solvers.at(chain).idsolver->CartToJnt(j,qzero,qzero,f_ext,tau);
+    if(res<0)
+    {
+        ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : unable to get the right ID, did you use the right dimensions?");
+        return false;
+    }
+    
+    if(publish)
+    {
+        publishConfig(solvers.at(chain).joint_names,j);
+    }
+    
+    return true;
+}
