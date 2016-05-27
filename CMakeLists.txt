@@ -24,6 +24,7 @@ find_package(catkin REQUIRED COMPONENTS
 	kdl_conversions
 	kdl_parser
 	dual_manipulation_shared
+	message_generation
 	# tf
 	# orocos_kdl
 )
@@ -69,11 +70,10 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
+add_service_files(
+  FILES
+  qb_legs_srv.srv
+)
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -120,7 +120,9 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES qb_legs
-#  CATKIN_DEPENDS qbmove_description
+ CATKIN_DEPENDS 
+    qbmove_description
+    message_runtime
 #  DEPENDS system_lib
 )
 

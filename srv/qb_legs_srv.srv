@@ -1,0 +1,8 @@
+string chain_name
+string command
+float64[] q_in
+geometry_msgs/Pose pose_in
+---
+float64[] q_out
+geometry_msgs/Pose pose_out
+float64[] tau
