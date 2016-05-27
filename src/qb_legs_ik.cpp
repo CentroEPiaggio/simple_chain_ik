@@ -11,6 +11,7 @@
 #include <moveit/robot_model/joint_model_group.h>
 #include <kdl/kinfam_io.hpp>
 #include <dual_manipulation_shared/parsing_utils.h>
+#include <sensor_msgs/JointState.h>
 
 #define CLASS_NAMESPACE "qb_legs_ik::"
 #define DEBUG 1 // if 1, print some more information
@@ -149,24 +150,24 @@ void qb_legs_ik::initialize_solvers(chain_and_solvers* container) const
 
 bool qb_legs_ik::publishConfig(const std::vector< std::string >& joint_names, const KDL::JntArray& q) const
 {
-//     static ros::Publisher joint_state_pub_;
-//     static bool pub_initialized(false);
-//     static ros::NodeHandle node;
-//     if (!pub_initialized)
-//     {
-//         joint_state_pub_ = node.advertise<sensor_msgs::JointState>("sem2cart/joint_states",10);
-//         pub_initialized = true;
-//     }
-//     sensor_msgs::JointState js_msg;
-//     js_msg.name = joint_names;
-//     js_msg.header.stamp = ros::Time::now();
-//     js_msg.position.clear();
-//     for(int i=0; i<js_msg.name.size(); i++)
-//     {
-//         js_msg.position.push_back(q(i));
-//     }
-//     joint_state_pub_.publish(js_msg);
-//     
+    static ros::Publisher joint_state_pub_;
+    static bool pub_initialized(false);
+    static ros::NodeHandle node;
+    if (!pub_initialized)
+    {
+        joint_state_pub_ = node.advertise<sensor_msgs::JointState>("qb_legs/joint_states",10);
+        pub_initialized = true;
+    }
+    sensor_msgs::JointState js_msg;
+    js_msg.name = joint_names;
+    js_msg.header.stamp = ros::Time::now();
+    js_msg.position.clear();
+    for(int i=0; i<js_msg.name.size(); i++)
+    {
+        js_msg.position.push_back(q(i));
+    }
+    joint_state_pub_.publish(js_msg);
+    
     return true;
 }
 

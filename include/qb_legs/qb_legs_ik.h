@@ -32,17 +32,16 @@ class qb_legs_ik
 {
 public:
     qb_legs_ik();
-    bool normalizePose(geometry_msgs::Pose& pose);
+    bool get_ik(const std::string& chain, const KDL::Frame& ee, std::vector<double>& j, bool pubish = false);
+    bool get_fk(const std::string& chain, const std::vector<double>& j, KDL::Frame& ee, bool pubish = false);
+    bool get_gravity(const std::string& chain, const std::vector<double>& j, std::vector<double>& tau, bool pubish = false);
 private:
-    bool check_ik(std::string ee_name, KDL::Frame World_EE) const;
     void initialize_solvers(chain_and_solvers* container) const;
     void parseParameters(XmlRpc::XmlRpcValue& params);
     bool publishConfig(const std::vector<std::string>& joint_names, const KDL::JntArray& q) const;
     bool normalizePoses(std::vector< geometry_msgs::Pose >& poses);
+    bool normalizePose(geometry_msgs::Pose& pose);
 private:
-    std::map<int,KDL::Frame> fine_tuning;
-    std::vector<KDL::Rotation> sphere_sampling;
-    mutable chain_and_solvers double_arm_solver;
     std::string robot_urdf;
     urdf::Model urdf_model;
     KDL::Tree robot_kdl;
