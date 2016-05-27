@@ -11,6 +11,10 @@
     <!-- start robot state publisher -->
     <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" output="screen" />
 
-    <node name="qb_legs_node" pkg="qb_legs" type="qb_legs_node" output="screen"/>
+
+    <!-- load parameters on the server -->
+    <rosparam file="$(find qb_legs)/config/params.yaml" command="load"/>
+
+    <!-- <node name="qb_legs_node" pkg="qb_legs" type="qb_legs_node" output="screen"/> -->
 
 </launch>

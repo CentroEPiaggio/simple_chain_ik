@@ -23,6 +23,7 @@ find_package(catkin REQUIRED COMPONENTS
 	qbmove_description
 	kdl_conversions
 	kdl_parser
+	dual_manipulation_shared
 	# tf
 	# orocos_kdl
 )

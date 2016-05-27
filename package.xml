@@ -41,7 +41,9 @@
   <!--   <test_depend>gtest</test_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>qbmove_description</build_depend>
+  <build_depend>dual_manipulation_shared</build_depend>
   <run_depend>qbmove_description</run_depend>
+  <run_depend>dual_manipulation_shared</run_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->
