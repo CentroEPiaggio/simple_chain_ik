@@ -1,12 +1,13 @@
 <launch>
-    <arg name="gui" default="false" />
+    <arg name="gui" default="true" />
 
     <!-- send the bigman robot XML to param server -->
     <param name="robot_description" command="$(find xacro)/xacro.py '$(find qb_legs)/model/qb_legs_robot.urdf.xacro'" />
 
-    <param name="use_gui" value="$(arg gui)"/>
-
-    <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
+    <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" >
+        <param name="use_gui" value="$(arg gui)"/>
+        <rosparam param="source_list">[qb_legs/joint_states]</rosparam>
+    </node>
 
     <!-- start robot state publisher -->
     <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" output="screen" />
@@ -15,6 +16,6 @@
     <!-- load parameters on the server -->
     <rosparam file="$(find qb_legs)/config/params.yaml" command="load"/>
 
-    <!-- <node name="qb_legs_node" pkg="qb_legs" type="qb_legs_node" output="screen"/> -->
+    <node name="qb_legs_node" pkg="qb_legs" type="qb_legs_node" output="screen"/>
 
 </launch>
