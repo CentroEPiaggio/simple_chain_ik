@@ -18,6 +18,7 @@
 	<xacro:property name="foot_thickness" value="10" />
 	<xacro:property name="torso_mass" value="2.7" />
 	<xacro:property name="foot_mass" value="0.75" />
+	<xacro:property name="pelvis_mass" value="0.3" />
 
 	<!-- isLeft parameter should be 1 for the left leg, -1 for the right leg -->
 	<xacro:macro name="qb_single_leg" params="parent name side isLeft high_joint mid_joint low_joint position orientation">
@@ -56,39 +57,50 @@
 		<joint name="${name}_dummy_joint" type="fixed" >
 			<insert_block name="origin" />
 			<parent link="${parent}" />
-			<child link="${name}_dummy_link" />
+			<child link="${name}_pelvis_link" />
 		</joint>
 
-		<link name="${name}_dummy_link"/>
+		<link name="${name}_pelvis_link">
+			<inertial>
+				<origin xyz="0 0 0" rpy="0 0 0" />
+				<mass value="${pelvis_mass}"/>
+				<inertia ixx="${pelvis_mass * cube_size * cube_size /9.0 * mm2_to_m2}" ixy="0.0" ixz="0.0" iyy="${pelvis_mass * legs_width * legs_width /9.0 * mm2_to_m2}" iyz="0.0" izz="${pelvis_mass * 20 * 20 /9.0 * mm2_to_m2}"/>
+			</inertial>
+			<visual>
+				<geometry>
+					<box size="${cube_size/scale_f} ${legs_width/scale_f} ${20/scale_f}"/>
+				</geometry>
+			</visual>
+		</link>
 
 		<!-- macro for each cube -->
 
 		<!-- torso -->
-		<xacro:qb_move parent="${name}_dummy_link" name="${name}_7" position="0 0 ${(flat_shaft/2.0+cube_size/2.0)/scale_f}" orientation="${- pi / 2} 0 0"/>
+		<xacro:qb_move parent="${name}_pelvis_link" name="${name}_7" position="0 0 ${(flat_shaft/2.0+cube_size/2.0)/scale_f}" orientation="${- pi / 2} 0 0"/>
 
 		<xacro:rotating_c_shaft parent="${name}_7" name="${name}_upper_shaft" position="0 0 0" orientation="${-pi / 2} 0 0"/>
 
 		<joint name="${name}_torso_joint" type="fixed">
 			<origin position="0 0 ${-(150-c_flange))/scale_f}" orientation="0 0 0"/>
 			<parent link="${name}_upper_shaft"/>
-			<child link="${name}_torso_box"/>
+			<child link="${name}_torso_link"/>
 		</joint>
-		<link name="${name}_torso_box">
+		<link name="${name}_torso_link">
 			<inertial>
 				<origin xyz="0 0 0" rpy="0 0 0" />
 				<mass value="${torso_mass}"/>
-				<inertia ixx="${torso_mass * 230 * 230 /9.0 * mm2_to_m2}" ixy="0.0" ixz="0.0" iyy="${torso_mass * 350 * 350 /9.0 * mm2_to_m2}" iyz="0.0" izz="${torso_mass * 100 * 100 /9.0 * mm2_to_m2}"/>
+				<inertia ixx="${torso_mass * 350 * 350 /9.0 * mm2_to_m2}" ixy="0.0" ixz="0.0" iyy="${torso_mass * 250 * 250 /9.0 * mm2_to_m2}" iyz="0.0" izz="${torso_mass * 100 * 100 /9.0 * mm2_to_m2}"/>
 			</inertial>
 			<visual>
 				<geometry>
-					<box size="${230/scale_f} ${350/scale_f} ${100/scale_f}"/>
+					<box size="${350/scale_f} ${250/scale_f} ${100/scale_f}"/>
 				</geometry>
 			</visual>
 		</link>
 
 		<!-- left leg -->
-		<xacro:qb_single_leg parent="${name}_dummy_link" name="${name}" side="left" isLeft="1" high_joint="3" mid_joint="2" low_joint="1" position="0 ${(legs_width-cube_size)/scale_f/2.0} ${-(flat_shaft/2.0+cube_size/2.0)/scale_f}" orientation="${-pi/2} 0 0"/>
-		<!-- <xacro:qb_move parent="${name}_dummy_link" name="${name}_3" position="0 ${(legs_width-cube_size)/scale_f/2.0} ${-(flat_shaft/2.0+cube_size/2.0)/scale_f}" orientation="${-pi/2} 0 0"/>
+		<xacro:qb_single_leg parent="${name}_pelvis_link" name="${name}" side="left" isLeft="1" high_joint="3" mid_joint="2" low_joint="1" position="0 ${(legs_width-cube_size)/scale_f/2.0} ${-(flat_shaft/2.0+cube_size/2.0)/scale_f}" orientation="${-pi/2} 0 0"/>
+		<!-- <xacro:qb_move parent="${name}_pelvis_link" name="${name}_3" position="0 ${(legs_width-cube_size)/scale_f/2.0} ${-(flat_shaft/2.0+cube_size/2.0)/scale_f}" orientation="${-pi/2} 0 0"/>
 		<xacro:rotating_c2_shaft parent="${name}_3" name="${name}_left_high_shaft" position="0 0 0" orientation="${pi/2} 0 0"/>
 		<xacro:qb_move parent="${name}_left_high_shaft" name="${name}_2" position="0 0 ${-extra_after_c2_flange/scale_f}" orientation="${-pi/2} 0 0"/>
 		<xacro:rotating_c_shaft parent="${name}_2" name="${name}_left_mid_shaft" position="0 0 0" orientation="${pi/2} 0 0"/>
@@ -111,11 +123,11 @@
 		</link> -->
 
 		<!-- right leg -->
-		<xacro:qb_single_leg parent="${name}_dummy_link" name="${name}" side="right" isLeft="-1" high_joint="4" mid_joint="5" low_joint="6" position="0 ${-(legs_width-cube_size)/scale_f/2.0} ${-(flat_shaft/2.0+cube_size/2.0)/scale_f}" orientation="${pi/2} 0 0"/>
+		<xacro:qb_single_leg parent="${name}_pelvis_link" name="${name}" side="right" isLeft="-1" high_joint="4" mid_joint="5" low_joint="6" position="0 ${-(legs_width-cube_size)/scale_f/2.0} ${-(flat_shaft/2.0+cube_size/2.0)/scale_f}" orientation="${pi/2} 0 0"/>
 
 		<!-- this is the same as the right leg, changing names and multiplying all roll angles by -1 -->
 		<!-- I'm keeping it separate for numbering convention -->
-		<!-- <xacro:qb_move parent="${name}_dummy_link" name="${name}_4" position="0 ${-(legs_width-cube_size)/scale_f/2.0} ${-(flat_shaft/2.0+cube_size/2.0)/scale_f}" orientation="${pi/2} 0 0"/>
+		<!-- <xacro:qb_move parent="${name}_pelvis_link" name="${name}_4" position="0 ${-(legs_width-cube_size)/scale_f/2.0} ${-(flat_shaft/2.0+cube_size/2.0)/scale_f}" orientation="${pi/2} 0 0"/>
 		<xacro:rotating_c2_shaft parent="${name}_4" name="${name}_right_high_shaft" position="0 0 0" orientation="${-pi/2} 0 0"/>
 		<xacro:qb_move parent="${name}_right_high_shaft" name="${name}_5" position="0 0 ${-extra_after_c2_flange/scale_f}" orientation="${pi/2} 0 0"/>
 		<xacro:rotating_c_shaft parent="${name}_5" name="${name}_right_mid_shaft" position="0 0 0" orientation="${-pi/2} 0 0"/>
