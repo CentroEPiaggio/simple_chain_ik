@@ -26,6 +26,7 @@ public:
     std::vector<std::string> joint_names;
     int index;
     KDL::JntArray q_min, q_max;
+    std::vector<double> tau_multiplier;
 };
 
 
@@ -37,7 +38,7 @@ public:
     bool get_fk(const std::string& chain, const KDL::JntArray& j, KDL::Frame& ee, bool publish = false);
     bool get_gravity(const std::string& chain, const KDL::JntArray& j, KDL::JntArray& tau, bool publish = false);
 private:
-    void initialize_solvers(chain_and_solvers* container) const;
+    void initialize_solvers(chain_and_solvers* container, const KDL::Tree& robot_kdl, int chain_index) const;
     void parseParameters(XmlRpc::XmlRpcValue& params);
     bool publishConfig(const std::vector< std::string >& joint_names, const KDL::JntArray& q);
     bool normalizePoses(std::vector< geometry_msgs::Pose >& poses);

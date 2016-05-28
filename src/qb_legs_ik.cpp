@@ -88,7 +88,7 @@ qb_legs_ik::qb_legs_ik() : gravity(0.0,0.0,-9.81)
         #endif
         
         solvers[chain_names_list.at(i)].chain = chains[chain_names_list.at(i)];
-        initialize_solvers(&(solvers[chain_names_list.at(i)]));
+        initialize_solvers(&(solvers[chain_names_list.at(i)]),robot_kdl,i);
     }
     
     // check which robot I am using
@@ -108,13 +108,15 @@ void qb_legs_ik::parseParameters(XmlRpc::XmlRpcValue& params)
     for(int i=0; i<3; i++) gravity(i) = base_gravity[i];
 }
 
-void qb_legs_ik::initialize_solvers(chain_and_solvers* container) const
+void qb_legs_ik::initialize_solvers(chain_and_solvers* container, const KDL::Tree& robot_kdl, int chain_index) const
 {
     delete container->fksolver;
     delete container->iksolver;
     delete container->ikvelsolver;
     delete container->idsolver;
     container->joint_names.clear();
+    container->tau_multiplier.clear();
+    container->tau_multiplier.resize(container->chain.getNrOfJoints(),1.0);
     for (KDL::Segment& segment: container->chain.segments)
     {
         if (segment.getJoint().getType()==KDL::Joint::None) continue;
@@ -147,6 +149,50 @@ void qb_legs_ik::initialize_solvers(chain_and_solvers* container) const
     }
     uint max_iter = MAX_ITER;
     container->iksolver= new KDL::ChainIkSolverPos_NR_JL(container->chain,container->q_min,container->q_max,*container->fksolver,*container->ikvelsolver,max_iter,eps);
+    
+    std::string chain_root = container->chain.getSegment(0).getName();
+    std::string robot_root = robot_kdl.getRootSegment()->first;
+    // code from KDL::tree.cpp
+    // walk down from chain_root to the root of the tree
+    std::vector<KDL::SegmentMap::key_type> parents_chain_root;
+    for (KDL::SegmentMap::const_iterator s=robot_kdl.getSegment(chain_root); s!=robot_kdl.getSegments().end(); s = s->second.parent){
+        parents_chain_root.push_back(s->first);
+        if (s->first == robot_root) break;
+    }
+    if (parents_chain_root.empty() || parents_chain_root.back() != robot_root)
+    {
+        ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : there has been an error while looking for robot_root in chain_root ancestors...");
+        abort();
+    }
+    
+    #if DEBUG>1
+    std::cout << "parents_chain_root: [";
+    #endif
+    int j_count = 0;
+    for(int i=0; i<parents_chain_root.size() && i<container->chain.getNrOfSegments(); i++)
+    {
+        #if DEBUG>1
+        std::cout << parents_chain_root[i] << " ";
+        #endif
+        
+        const KDL::Segment& seg=container->chain.getSegment(i);
+        if( seg.getName() != parents_chain_root[i] )
+        {
+            #if DEBUG>1
+            continue;
+            #else
+            break;
+            #endif
+        }
+        else if( seg.getJoint().getType() != KDL::Joint::None )
+            container->tau_multiplier.at(j_count++) = -1;
+    }
+    #if DEBUG>1
+    std::cout << "]" << std::endl;
+    #endif
+    #if DEBUG>0
+    std::cout << "Changed " << j_count << " joint torques directions!" << std::endl;
+    #endif
 }
 
 bool qb_legs_ik::publishConfig(const std::vector< std::string >& joint_names, const KDL::JntArray& q)
@@ -225,6 +271,12 @@ bool qb_legs_ik::get_gravity(const std::string& chain, const KDL::JntArray& j, K
     {
         ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : unable to get the right ID, did you use the right dimensions?");
         return false;
+    }
+    
+    // rectify the sign of torques for switched joint axes
+    for(int i=0; i<tau.rows(); i++)
+    {
+        tau(i) *= solvers[chain].tau_multiplier[i];
     }
     
     if(publish)
