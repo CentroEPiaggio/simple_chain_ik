@@ -1,5 +1,6 @@
 <launch>
     <arg name="gui" default="true" />
+    <arg name="test" default="false" />
 
     <!-- send the bigman robot XML to param server -->
     <param name="robot_description" command="$(find xacro)/xacro.py '$(find qb_legs)/model/qb_legs_robot.urdf.xacro'" />
@@ -16,6 +17,12 @@
     <!-- load parameters on the server -->
     <rosparam file="$(find qb_legs)/config/params.yaml" command="load"/>
 
-    <node name="qb_legs_node" pkg="qb_legs" type="qb_legs_node" output="screen"/>
+
+    <group unless="$(arg test)">
+        <node name="qb_legs_node" pkg="qb_legs" type="qb_legs_node" output="screen" />
+    </group>
+    <group if="$(arg test)">
+        <node name="qb_legs_ik_test" pkg="qb_legs" type="qb_legs_ik_test" output="screen"/>
+    </group>
 
 </launch>

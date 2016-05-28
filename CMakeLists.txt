@@ -168,6 +168,9 @@ target_link_libraries(qb_legs_node
     ${catkin_LIBRARIES}
 )
 
+## add test subdirectory
+add_subdirectory(test)
+
 #############
 ## Install ##
 #############

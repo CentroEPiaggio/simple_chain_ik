@@ -72,7 +72,7 @@ int main(int argc, char** argv)
     qbik = new qb_legs_ik;
     
     ros::ServiceServer service_srv;
-    service_srv = nh.advertiseService("qb_legs_srv", &qb_srv_handler); //, this);
+    service_srv = nh.advertiseService("qb_legs_srv", &qb_srv_handler);
     
     std::cout << "qb_legs_node running!!!" << std::endl;
     
