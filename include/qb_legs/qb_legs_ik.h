@@ -12,6 +12,7 @@
 #include <geometry_msgs/Pose.h>
 #include <urdf/model.h>
 #include <kdl/chainidsolver_recursive_newton_euler.hpp>
+#include <kdl/treefksolverpos_recursive.hpp>
 
 #define BIG_NR 10000
 
@@ -56,6 +57,7 @@ private:
     std::map<std::string,chain_and_solvers> solvers;
     ros::Publisher joint_state_pub;
     KDL::Vector gravity;
+    KDL::TreeFkSolverPos_recursive* tree_fk;
 };
 
 #endif // QB_LEGS_IK_H

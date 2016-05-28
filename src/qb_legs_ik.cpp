@@ -47,6 +47,8 @@ qb_legs_ik::qb_legs_ik() : gravity(0.0,0.0,-9.81)
         abort();
     }
     
+    tree_fk = new KDL::TreeFkSolverPos_recursive(robot_kdl);
+    
     // managing external parameters
     XmlRpc::XmlRpcValue ext_params;
     if (nh.getParam("qb_legs_params", ext_params))
@@ -130,8 +132,24 @@ void qb_legs_ik::initialize_solvers(chain_and_solvers* container, const KDL::Tre
     container->q_min.resize(container->chain.getNrOfJoints());
     container->fksolver=new KDL::ChainFkSolverPos_recursive(container->chain);
     container->ikvelsolver = new KDL::ChainIkSolverVel_pinv(container->chain);
-    KDL::Vector gravity(0,0,9.81);
-    container->idsolver = new KDL::ChainIdSolver_RNE(container->chain,gravity);
+    
+    KDL::JntArray tree_j(robot_kdl.getNrOfJoints());
+    KDL::Frame robotroot_chainroot;
+    if(tree_fk->JntToCart(tree_j,robotroot_chainroot,chain_roots_list.at(chain_index)) < 0)
+    {
+        ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : unable to compute chain_root position in robot_root frame! Returning...");
+        abort();
+    }
+    
+    KDL::Vector local_gravity = robotroot_chainroot.M.Inverse(gravity);
+    #if DEBUG>1
+    std::cout << "robotroot_chainroot: " << robotroot_chainroot << std::endl;
+    #endif
+    #if DEBUG>0
+    std::cout << "local gravity: " << local_gravity << std::endl;
+    #endif
+    
+    container->idsolver = new KDL::ChainIdSolver_RNE(container->chain,local_gravity);
     int j=0;
     for (auto joint_name:container->joint_names)
     {
