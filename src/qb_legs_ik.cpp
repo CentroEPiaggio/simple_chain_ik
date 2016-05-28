@@ -95,7 +95,7 @@ qb_legs_ik::qb_legs_ik() : gravity(0.0,0.0,-9.81)
     
     // check which robot I am using
     std::string robot_name = urdf_model.getName();
-    std::cout << CLASS_NAMESPACE << " : I am using \"" << robot_name << "\" robot!" << std::endl;
+    std::cout << CLASS_NAMESPACE << __func__ << " : I am using \"" << robot_name << "\" robot!" << std::endl;
 }
 
 void qb_legs_ik::parseParameters(XmlRpc::XmlRpcValue& params)
@@ -280,9 +280,30 @@ bool qb_legs_ik::get_fk(const std::string& chain, const KDL::JntArray& j, KDL::F
 
 bool qb_legs_ik::get_gravity(const std::string& chain, const KDL::JntArray& j, KDL::JntArray& tau, bool publish)
 {
+    std::map<std::string,KDL::Wrench> w_ext;
+    
+    return get_gravity(chain,j,w_ext,tau,publish);
+}
+
+bool qb_legs_ik::get_gravity(const std::string& chain, const KDL::JntArray& j, const std::map<std::string,KDL::Wrench>& w_ext, KDL::JntArray& tau, bool publish)
+{
     int nj = solvers.at(chain).chain.getNrOfJoints();
     KDL::JntArray qzero(nj);
     KDL::Wrenches f_ext(solvers.at(chain).chain.getNrOfSegments(),KDL::Wrench(KDL::Vector::Zero(),KDL::Vector::Zero()));
+    
+    // add the external wrench in the appropriate position
+    int counter = 0, w_counter = w_ext.size();
+    for(KDL::Segment seg:solvers.at(chain).chain.segments)
+    {
+        if(w_counter <= 0)
+            break;
+        if(w_ext.count(seg.getName()))
+        {
+            f_ext.at(counter) = w_ext.at(seg.getName());
+            w_counter--;
+        }
+        counter++;
+    }
 
     int res = solvers.at(chain).idsolver->CartToJnt(j,qzero,qzero,f_ext,tau);
     if(res<0)

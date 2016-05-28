@@ -38,6 +38,7 @@ public:
     bool get_ik(const std::string& chain, const KDL::Frame& ee, const KDL::JntArray& q_init, KDL::JntArray& q_out, bool publish = false);
     bool get_fk(const std::string& chain, const KDL::JntArray& j, KDL::Frame& ee, bool publish = false);
     bool get_gravity(const std::string& chain, const KDL::JntArray& j, KDL::JntArray& tau, bool publish = false);
+    bool get_gravity(const std::string& chain, const KDL::JntArray& j, const std::map< std::string, KDL::Wrench >& w_ext, KDL::JntArray& tau, bool publish = false);
 private:
     void initialize_solvers(chain_and_solvers* container, const KDL::Tree& robot_kdl, int chain_index) const;
     void parseParameters(XmlRpc::XmlRpcValue& params);
