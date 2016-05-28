@@ -13,15 +13,13 @@
 #include <sensor_msgs/JointState.h>
 
 #define CLASS_NAMESPACE "qb_legs_ik::"
-#define DEBUG 1 // if 1, print some more information
-#define SHOW_IK 2
+#define DEBUG 1 // if 1, 2, ... print some more information
 #define MAX_ITER 100
-#define EPS 5e-3
+#define EPS 5e-4
 
-bool am_I_Vito = false;
 double eps = EPS;
 
-qb_legs_ik::qb_legs_ik()
+qb_legs_ik::qb_legs_ik() : gravity(0.0,0.0,-9.81)
 {
     std::string global_name, relative_name, default_param;
     if (nh.getParam("/robot_description", global_name)) //The checks here are redundant, but they may provide more debug info
@@ -75,8 +73,10 @@ qb_legs_ik::qb_legs_ik()
         
         chains[chain_names_list.at(i)] = temp;
         
-        #if DEBUG
+        #if DEBUG>0
         std::cout << "chains[" << chain_names_list.at(i) << "].getNrOfJoints(): " << chains[chain_names_list.at(i)].getNrOfJoints() << std::endl;
+        #endif
+        #if DEBUG>1
         std::cout << "chains[" << chain_names_list.at(i) << "].segments: | ";
         for(auto segs:chains[chain_names_list.at(i)].segments)
             std::cout << segs.getName() << " | ";
@@ -93,18 +93,19 @@ qb_legs_ik::qb_legs_ik()
     
     // check which robot I am using
     std::string robot_name = urdf_model.getName();
-    std::cout << "qb_legs_ik : I am using \"" << robot_name << "\" robot!" << std::endl;
+    std::cout << CLASS_NAMESPACE << " : I am using \"" << robot_name << "\" robot!" << std::endl;
 }
 
 void qb_legs_ik::parseParameters(XmlRpc::XmlRpcValue& params)
 {
-    // double goal_position_tolerance = EPS, goal_orientation_tolerance = EPS;
-    // eps = std::min(goal_position_tolerance,goal_orientation_tolerance);
-
     ROS_ASSERT(params.getType() == XmlRpc::XmlRpcValue::TypeStruct);
     parseSingleParameter(params,chain_names_list,"chain_names",1);
     parseSingleParameter(params,chain_roots_list,"chain_roots",1);
     parseSingleParameter(params,chain_ees_list,"chain_ees",1);
+    parseSingleParameter(params,eps,"eps");
+    std::vector<double> base_gravity({gravity(0),gravity(1),gravity(2)});
+    parseSingleParameter(params,base_gravity,"base_gravity",3);
+    for(int i=0; i<3; i++) gravity(i) = base_gravity[i];
 }
 
 void qb_legs_ik::initialize_solvers(chain_and_solvers* container) const
@@ -117,7 +118,7 @@ void qb_legs_ik::initialize_solvers(chain_and_solvers* container) const
     for (KDL::Segment& segment: container->chain.segments)
     {
         if (segment.getJoint().getType()==KDL::Joint::None) continue;
-        #if DEBUG>1
+        #if DEBUG>2
         std::cout<<segment.getJoint().getName()<<std::endl;
         #endif
         container->joint_names.push_back(segment.getJoint().getName());

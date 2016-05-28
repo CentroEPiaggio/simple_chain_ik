@@ -54,6 +54,7 @@ private:
     std::map<std::string,KDL::Chain> chains_reverse;
     std::map<std::string,chain_and_solvers> solvers;
     ros::Publisher joint_state_pub;
+    KDL::Vector gravity;
 };
 
 #endif // QB_LEGS_IK_H

@@ -1,4 +1,6 @@
 qb_legs_params:
+  eps: 0.001
+  base_gravity: [0.0, 0.0, -9.81]
   chain_names: [lfoot_torso,lfoot_rfoot,lfoot_pelvis,rfoot_torso,rfoot_lfoot,rfoot_pelvis]
   chain_roots: [qb_legs_left_foot,qb_legs_left_foot,qb_legs_left_foot,qb_legs_right_foot,qb_legs_right_foot,qb_legs_right_foot]
   chain_ees: [qb_legs_torso_link,qb_legs_right_foot,qb_legs_pelvis_link,qb_legs_torso_link,qb_legs_left_foot,qb_legs_pelvis_link]
