@@ -42,7 +42,15 @@ bool qb_srv_handler(qb_legs::qb_legs_srv::Request& req, qb_legs::qb_legs_srv::Re
     }
     else if(req.command == "grav")
     {
-        res.ok = qbik->get_gravity(req.chain_name,j_in,j_out,req.publish);
+        std::map<std::string,KDL::Wrench> w_ext;
+        KDL::Wrench w_tmp;
+        for(const geometry_msgs::WrenchStamped& w:req.w_ext)
+        {
+            tf::wrenchMsgToKDL(w.wrench,w_tmp);
+            w_ext[w.header.frame_id] = w_tmp;
+        }
+        
+        res.ok = qbik->get_gravity(req.chain_name,j_in,w_ext,j_out,req.publish);
         jntArrayToArray(j_out,res.tau);
     }
     else
