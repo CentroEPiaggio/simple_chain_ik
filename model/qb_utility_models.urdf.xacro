@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://ros.org/wiki/xacro">
 
-	<xacro:include filename="$(find qbmove_description)/model/qb_move.urdf.xacro" />
+	<xacro:include filename="$(find qbmove_description)/model/qbmove.urdf.xacro" />
 
 	<xacro:property name="c_flange" value="91" />
 	<xacro:property name="c2_flange" value="120" />
