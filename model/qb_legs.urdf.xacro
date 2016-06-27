@@ -2,7 +2,9 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
 	<!-- we need the definition of the qb_move unit -->
-	<xacro:include filename="$(find qb_legs)/model/qb_utility_models.urdf.xacro" />
+	<xacro:include filename="$(find qbmove_description)/model/qbmove.urdf.xacro" />
+	<xacro:include filename="$(find qbmove_description)/model/qbmate_interconnections.urdf.xacro" />
+
 
 	<xacro:property name="pi" value="3.1415926535897931" />
 	<xacro:property name="flat_shaft" value="44" /> <!-- (110-66) -->
