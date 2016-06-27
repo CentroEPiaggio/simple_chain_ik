@@ -55,9 +55,10 @@
 
 		<link name="${name}">
 			<inertial>
+				<!-- inertia of a full, uniform cube -->
 				<origin xyz="0 0 0" rpy="0 0 0" />
 				<mass value="${mp_cube_mass}"/>
-				<inertia ixx="${mp_cube_mass * cube_size * cube_size /9.0 * mm2_to_m2}" ixy="0.0" ixz="0.0" iyy="${mp_cube_mass * cube_size * cube_size /9.0 * mm2_to_m2}" iyz="0.0" izz="${mp_cube_mass * cube_size * cube_size /9.0 * mm2_to_m2}"/>
+				<inertia ixx="${mp_cube_mass * cube_size * cube_size / 6.0 * mm2_to_m2}" ixy="0.0" ixz="0.0" iyy="${mp_cube_mass * cube_size * cube_size / 6.0 * mm2_to_m2}" iyz="0.0" izz="${mp_cube_mass * cube_size * cube_size / 6.0 * mm2_to_m2}"/>
 			</inertial>
 			<visual>
 				<origin xyz="0 0 0" rpy="0 0 0" />
