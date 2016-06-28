@@ -15,7 +15,7 @@
 
 
     <!-- load parameters on the server -->
-    <rosparam file="$(find qb_legs_description)/config/qb_legs_params.yaml" command="load"/>
+    <rosparam file="$(find simple_chain_ik)/config/qb_legs_params.yaml" command="load"/>
 
 
     <group unless="$(arg test)">
