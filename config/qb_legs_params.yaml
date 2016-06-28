@@ -1,4 +1,4 @@
-qb_legs_params:
+simple_chain_ik_params:
   eps: 0.001
   base_gravity: [0.0, 0.0, -9.81]
   chain_names: [lfoot_torso,lfoot_rfoot,lfoot_pelvis,rfoot_torso,rfoot_lfoot,rfoot_pelvis]

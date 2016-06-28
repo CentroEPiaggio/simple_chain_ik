@@ -3,11 +3,11 @@
     <arg name="test" default="false" />
 
     <!-- send the bigman robot XML to param server -->
-    <param name="robot_description" command="$(find xacro)/xacro.py '$(find qb_legs)/model/qb_legs_robot.urdf.xacro'" />
+    <param name="robot_description" command="$(find xacro)/xacro.py '$(find qb_legs_description)/model/qb_legs_robot.urdf.xacro'" />
 
     <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" >
         <param name="use_gui" value="$(arg gui)"/>
-        <rosparam param="source_list">[qb_legs/joint_states]</rosparam>
+        <rosparam param="source_list">[simple_chain_ik/joint_states]</rosparam>
     </node>
 
     <!-- start robot state publisher -->
@@ -15,14 +15,14 @@
 
 
     <!-- load parameters on the server -->
-    <rosparam file="$(find qb_legs)/config/params.yaml" command="load"/>
+    <rosparam file="$(find qb_legs_description)/config/qb_legs_params.yaml" command="load"/>
 
 
     <group unless="$(arg test)">
-        <node name="qb_legs_node" pkg="qb_legs" type="qb_legs_node" output="screen" />
+        <node name="simple_chain_ik_node" pkg="simple_chain_ik" type="simple_chain_ik_node" output="screen" />
     </group>
     <group if="$(arg test)">
-        <node name="qb_legs_ik_test" pkg="qb_legs" type="qb_legs_ik_test" output="screen"/>
+        <node name="simple_chain_ik_test" pkg="simple_chain_ik" type="simple_chain_ik_test" output="screen"/>
     </group>
 
 </launch>

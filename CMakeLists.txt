@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(qb_legs)
+project(simple_chain_ik)
 
 ENABLE_LANGUAGE(CXX)
 SET(CMAKE_BUILD_TYPE "Debug")
@@ -20,7 +20,6 @@ endif()
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS 
 	roscpp
-	qbmove_description
 	kdl_conversions
 	kdl_parser
 	dual_manipulation_shared
@@ -74,7 +73,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## Generate services in the 'srv' folder
 add_service_files(
   FILES
-  qb_legs_srv.srv
+  simple_chain_ik_srv.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -122,9 +121,8 @@ generate_messages(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES qb_legs
+#  LIBRARIES simple_chain_ik
  CATKIN_DEPENDS 
-    qbmove_description
     message_runtime
 #  DEPENDS system_lib
 )
@@ -142,29 +140,29 @@ include_directories(
 )
 
 ## Declare a C++ library
-add_library(qb_legs
-  src/qb_legs_ik.cpp
+add_library(simple_chain_ik_solver
+  src/simple_chain_ik_solver.cpp
 )
-add_dependencies(qb_legs ${catkin_EXPORTED_TARGETS})
-target_link_libraries(qb_legs
+add_dependencies(simple_chain_ik_solver ${catkin_EXPORTED_TARGETS})
+target_link_libraries(simple_chain_ik_solver
     ${catkin_LIBRARIES}
 )
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
-# add_dependencies(qb_legs ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# add_dependencies(simple_chain_ik_solver ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
-add_executable(qb_legs_node src/qb_legs_node.cpp)
+add_executable(simple_chain_ik_node src/simple_chain_ik_node.cpp)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-add_dependencies(qb_legs_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(simple_chain_ik_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(qb_legs_node
-    qb_legs
+target_link_libraries(simple_chain_ik_node
+    simple_chain_ik_solver
     ${catkin_LIBRARIES}
 )
 
@@ -186,7 +184,7 @@ add_subdirectory(test)
 # )
 
 ## Mark executables and/or libraries for installation
-# install(TARGETS qb_legs qb_legs_node
+# install(TARGETS simple_chain_ik_solver simple_chain_ik_node
 #   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -211,7 +209,7 @@ add_subdirectory(test)
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_qb_legs.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_simple_chain_ik.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()

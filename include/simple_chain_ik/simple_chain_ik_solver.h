@@ -1,5 +1,5 @@
-#ifndef QB_LEGS_IK_H
-#define QB_LEGS_IK_H
+#ifndef SIMPLE_CHAIN_IK_SOLVER_H
+#define SIMPLE_CHAIN_IK_SOLVER_H
 #include <ros/ros.h>
 #include <kdl/frames.hpp>
 #include <kdl/chain.hpp>
@@ -31,10 +31,10 @@ public:
 };
 
 
-class qb_legs_ik
+class simple_chain_ik_solver
 {
 public:
-    qb_legs_ik();
+    simple_chain_ik_solver();
     bool get_ik(const std::string& chain, const KDL::Frame& ee, const KDL::JntArray& q_init, KDL::JntArray& q_out, bool publish = false);
     bool get_fk(const std::string& chain, const KDL::JntArray& j, KDL::Frame& ee, bool publish = false);
     bool get_gravity(const std::string& chain, const KDL::JntArray& j, KDL::JntArray& tau, bool publish = false);
@@ -61,4 +61,4 @@ private:
     KDL::TreeFkSolverPos_recursive* tree_fk;
 };
 
-#endif // QB_LEGS_IK_H
+#endif // SIMPLE_CHAIN_IK_SOLVER_H

@@ -1,4 +1,4 @@
-#include "qb_legs/qb_legs_ik.h"
+#include "simple_chain_ik/simple_chain_ik_solver.h"
 #include <vector>
 #include <kdl_conversions/kdl_msg.h>
 #include <math.h>
@@ -12,14 +12,14 @@
 #include <dual_manipulation_shared/parsing_utils.h>
 #include <sensor_msgs/JointState.h>
 
-#define CLASS_NAMESPACE "qb_legs_ik::"
+#define CLASS_NAMESPACE "simple_chain_ik_solver::"
 #define DEBUG 1 // if 1, 2, ... print some more information
 #define MAX_ITER 100
 #define EPS 5e-4
 
 double eps = EPS;
 
-qb_legs_ik::qb_legs_ik() : gravity(0.0,0.0,-9.81)
+simple_chain_ik_solver::simple_chain_ik_solver() : gravity(0.0,0.0,-9.81)
 {
     std::string global_name, relative_name, default_param;
     if (nh.getParam("/robot_description", global_name)) //The checks here are redundant, but they may provide more debug info
@@ -51,7 +51,7 @@ qb_legs_ik::qb_legs_ik() : gravity(0.0,0.0,-9.81)
     
     // managing external parameters
     XmlRpc::XmlRpcValue ext_params;
-    if (nh.getParam("qb_legs_params", ext_params))
+    if (nh.getParam("simple_chain_ik_params", ext_params))
         parseParameters(ext_params);
     else
     {
@@ -59,7 +59,7 @@ qb_legs_ik::qb_legs_ik() : gravity(0.0,0.0,-9.81)
         abort();
     }
     
-    joint_state_pub = nh.advertise<sensor_msgs::JointState>("qb_legs/joint_states",10);
+    joint_state_pub = nh.advertise<sensor_msgs::JointState>("simple_chain_ik/joint_states",10);
     
     KDL::Chain temp;
     #if DEBUG
@@ -98,7 +98,7 @@ qb_legs_ik::qb_legs_ik() : gravity(0.0,0.0,-9.81)
     std::cout << CLASS_NAMESPACE << __func__ << " : I am using \"" << robot_name << "\" robot!" << std::endl;
 }
 
-void qb_legs_ik::parseParameters(XmlRpc::XmlRpcValue& params)
+void simple_chain_ik_solver::parseParameters(XmlRpc::XmlRpcValue& params)
 {
     ROS_ASSERT(params.getType() == XmlRpc::XmlRpcValue::TypeStruct);
     parseSingleParameter(params,chain_names_list,"chain_names",1);
@@ -110,7 +110,7 @@ void qb_legs_ik::parseParameters(XmlRpc::XmlRpcValue& params)
     for(int i=0; i<3; i++) gravity(i) = base_gravity[i];
 }
 
-void qb_legs_ik::initialize_solvers(chain_and_solvers* container, const KDL::Tree& robot_kdl, int chain_index) const
+void simple_chain_ik_solver::initialize_solvers(chain_and_solvers* container, const KDL::Tree& robot_kdl, int chain_index) const
 {
     delete container->fksolver;
     delete container->iksolver;
@@ -213,7 +213,7 @@ void qb_legs_ik::initialize_solvers(chain_and_solvers* container, const KDL::Tre
     #endif
 }
 
-bool qb_legs_ik::publishConfig(const std::vector< std::string >& joint_names, const KDL::JntArray& q)
+bool simple_chain_ik_solver::publishConfig(const std::vector< std::string >& joint_names, const KDL::JntArray& q)
 {
     sensor_msgs::JointState js_msg;
     js_msg.name = joint_names;
@@ -228,7 +228,7 @@ bool qb_legs_ik::publishConfig(const std::vector< std::string >& joint_names, co
     return true;
 }
 
-bool qb_legs_ik::normalizePose(geometry_msgs::Pose& pose)
+bool simple_chain_ik_solver::normalizePose(geometry_msgs::Pose& pose)
 {
     geometry_msgs::Quaternion& q(pose.orientation);
     double q_norm = std::sqrt(q.x*q.x+q.y*q.y+q.z*q.z+q.w*q.w);
@@ -245,7 +245,7 @@ bool qb_legs_ik::normalizePose(geometry_msgs::Pose& pose)
     return ok;
 }
 
-bool qb_legs_ik::normalizePoses(std::vector< geometry_msgs::Pose >& poses)
+bool simple_chain_ik_solver::normalizePoses(std::vector< geometry_msgs::Pose >& poses)
 {
     bool ok = true;
     for (auto& p:poses)
@@ -254,7 +254,7 @@ bool qb_legs_ik::normalizePoses(std::vector< geometry_msgs::Pose >& poses)
     return ok;
 }
 
-bool qb_legs_ik::get_ik(const std::string& chain, const KDL::Frame& ee, const KDL::JntArray& q_init, KDL::JntArray& q_out, bool publish)
+bool simple_chain_ik_solver::get_ik(const std::string& chain, const KDL::Frame& ee, const KDL::JntArray& q_init, KDL::JntArray& q_out, bool publish)
 {
     int res = solvers.at(chain).iksolver->CartToJnt(q_init,ee,q_out);
     
@@ -266,7 +266,7 @@ bool qb_legs_ik::get_ik(const std::string& chain, const KDL::Frame& ee, const KD
     return (res>=0);
 }
 
-bool qb_legs_ik::get_fk(const std::string& chain, const KDL::JntArray& j, KDL::Frame& ee, bool publish)
+bool simple_chain_ik_solver::get_fk(const std::string& chain, const KDL::JntArray& j, KDL::Frame& ee, bool publish)
 {
     int res = solvers.at(chain).fksolver->JntToCart(j,ee);
     
@@ -278,14 +278,14 @@ bool qb_legs_ik::get_fk(const std::string& chain, const KDL::JntArray& j, KDL::F
     return (res>=0);
 }
 
-bool qb_legs_ik::get_gravity(const std::string& chain, const KDL::JntArray& j, KDL::JntArray& tau, bool publish)
+bool simple_chain_ik_solver::get_gravity(const std::string& chain, const KDL::JntArray& j, KDL::JntArray& tau, bool publish)
 {
     std::map<std::string,KDL::Wrench> w_ext;
     
     return get_gravity(chain,j,w_ext,tau,publish);
 }
 
-bool qb_legs_ik::get_gravity(const std::string& chain, const KDL::JntArray& j, const std::map<std::string,KDL::Wrench>& w_ext, KDL::JntArray& tau, bool publish)
+bool simple_chain_ik_solver::get_gravity(const std::string& chain, const KDL::JntArray& j, const std::map<std::string,KDL::Wrench>& w_ext, KDL::JntArray& tau, bool publish)
 {
     int nj = solvers.at(chain).chain.getNrOfJoints();
     KDL::JntArray qzero(nj);

@@ -1,23 +1,20 @@
 <?xml version="1.0"?>
 <package>
-  <name>qb_legs</name>
+  <name>simple_chain_ik</name>
   <version>0.1.0</version>
-  <description>The qb_legs package</description>
+  <description>The simple_chain_ik package</description>
 
   <maintainer email="hamal.marino@gmail.com">Hamal Marino</maintainer>
 
   <license>BSD</license>
 
-  <!-- <url type="website">http://wiki.ros.org/qb_legs</url> -->
+  <!-- <url type="website">http://wiki.ros.org/simple_chain_ik</url> -->
 
   <author email="hamal.marino@gmail.com">Hamal Marino</author>
-  <author email="gasparrigianmaria@gmail.com">Gian Maria Gasparri</author>
 
   <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>qbmove_description</build_depend>
   <build_depend>dual_manipulation_shared</build_depend>
   <build_depend>message_generation</build_depend>
-  <run_depend>qbmove_description</run_depend>
   <run_depend>dual_manipulation_shared</run_depend>
   <run_depend>message_runtime</run_depend>
 
