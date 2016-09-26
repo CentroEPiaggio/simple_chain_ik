@@ -142,6 +142,7 @@ include_directories(
 ## Declare a C++ library
 add_library(simple_chain_ik_solver
   src/simple_chain_ik_solver.cpp
+  src/chain_and_solvers.cpp
 )
 add_dependencies(simple_chain_ik_solver ${catkin_EXPORTED_TARGETS})
 target_link_libraries(simple_chain_ik_solver

@@ -1,13 +1,9 @@
 #include "simple_chain_ik/simple_chain_ik_solver.h"
-#include <vector>
 #include <kdl_conversions/kdl_msg.h>
 #include <math.h>
 #include <algorithm>    // std::min_element, std::max_element
-#include <std_msgs/String.h>
 #include <kdl_parser/kdl_parser.hpp>
-#include <random>
 #include <kdl/frames_io.hpp>
-#include <moveit/robot_model/joint_model_group.h>
 #include <kdl/kinfam_io.hpp>
 #include <dual_manipulation_shared/parsing_utils.h>
 #include <sensor_msgs/JointState.h>
@@ -41,13 +37,15 @@ simple_chain_ik_solver::simple_chain_ik_solver() : gravity(0.0,0.0,-9.81)
         abort();
     }
     
+    KDL::Tree robot_kdl;
     if (!kdl_parser::treeFromUrdfModel(urdf_model, robot_kdl))
     {
         ROS_ERROR_STREAM("Failed to construct kdl tree");
         abort();
     }
+    tree = std::make_shared<KDL::Tree>(robot_kdl);
     
-    tree_fk = new KDL::TreeFkSolverPos_recursive(robot_kdl);
+    tree_fk.reset(new KDL::TreeFkSolverPos_recursive(*tree));
     
     // managing external parameters
     XmlRpc::XmlRpcValue ext_params;
@@ -63,7 +61,7 @@ simple_chain_ik_solver::simple_chain_ik_solver() : gravity(0.0,0.0,-9.81)
     
     KDL::Chain temp;
     #if DEBUG
-    std::string robot_root = robot_kdl.getRootSegment()->first; //ik_check_capability->get_robot_state().getRobotModel()->getRootLinkName();
+    std::string robot_root = tree->getRootSegment()->first;
     std::cout << "root: " << robot_root << std::endl;
     #endif
     
@@ -71,7 +69,7 @@ simple_chain_ik_solver::simple_chain_ik_solver() : gravity(0.0,0.0,-9.81)
     {
         std::string end_effector = chain_ees_list.at(i);
         std::string root = chain_roots_list.at(i);
-        robot_kdl.getChain(root,end_effector,temp);
+        tree->getChain(root,end_effector,temp);
         
         chains[chain_names_list.at(i)] = temp;
         
@@ -89,8 +87,9 @@ simple_chain_ik_solver::simple_chain_ik_solver() : gravity(0.0,0.0,-9.81)
         std::cout << std::endl;
         #endif
         
-        solvers[chain_names_list.at(i)].chain = chains[chain_names_list.at(i)];
-        initialize_solvers(&(solvers[chain_names_list.at(i)]),robot_kdl,i);
+        solvers[chain_names_list.at(i)].reset(new ChainAndSolvers(tree,tree_fk,chain_roots_list.at(i),chain_ees_list.at(i)));
+        
+        initialize_solvers(*solvers[chain_names_list.at(i)]);
     }
     
     // check which robot I am using
@@ -110,107 +109,32 @@ void simple_chain_ik_solver::parseParameters(XmlRpc::XmlRpcValue& params)
     for(int i=0; i<3; i++) gravity(i) = base_gravity[i];
 }
 
-void simple_chain_ik_solver::initialize_solvers(chain_and_solvers* container, const KDL::Tree& robot_kdl, int chain_index) const
+void simple_chain_ik_solver::initialize_solvers(ChainAndSolvers& container) const
 {
-    delete container->fksolver;
-    delete container->iksolver;
-    delete container->ikvelsolver;
-    delete container->idsolver;
-    container->joint_names.clear();
-    container->tau_multiplier.clear();
-    container->tau_multiplier.resize(container->chain.getNrOfJoints(),1.0);
-    for (KDL::Segment& segment: container->chain.segments)
-    {
-        if (segment.getJoint().getType()==KDL::Joint::None) continue;
-        #if DEBUG>2
-        std::cout<<segment.getJoint().getName()<<std::endl;
-        #endif
-        container->joint_names.push_back(segment.getJoint().getName());
-    }
-    assert(container->joint_names.size()==container->chain.getNrOfJoints());
-    container->q_max.resize(container->chain.getNrOfJoints());
-    container->q_min.resize(container->chain.getNrOfJoints());
-    container->fksolver=new KDL::ChainFkSolverPos_recursive(container->chain);
-    container->ikvelsolver = new KDL::ChainIkSolverVel_pinv(container->chain);
-    
-    KDL::JntArray tree_j(robot_kdl.getNrOfJoints());
-    KDL::Frame robotroot_chainroot;
-    if(tree_fk->JntToCart(tree_j,robotroot_chainroot,chain_roots_list.at(chain_index)) < 0)
-    {
-        ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : unable to compute chain_root position in robot_root frame! Returning...");
-        abort();
-    }
-    
-    KDL::Vector local_gravity = robotroot_chainroot.M.Inverse(gravity);
-    #if DEBUG>1
-    std::cout << "robotroot_chainroot: " << robotroot_chainroot << std::endl;
-    #endif
-    #if DEBUG>0
-    std::cout << "local gravity: " << local_gravity << std::endl;
-    #endif
-    
-    container->idsolver = new KDL::ChainIdSolver_RNE(container->chain,local_gravity);
+    KDL::JntArray q_min, q_max;
+    q_min.resize(container.jointNames().size());
+    q_max.resize(container.jointNames().size());
     int j=0;
-    for (auto joint_name:container->joint_names)
+    for (auto& joint_name:container.jointNames())
     {
         if(urdf_model.joints_.at(joint_name)->safety)
         {
-            container->q_max(j)=urdf_model.joints_.at(joint_name)->safety->soft_upper_limit;
-            container->q_min(j)=urdf_model.joints_.at(joint_name)->safety->soft_lower_limit;
+            q_max(j)=urdf_model.joints_.at(joint_name)->safety->soft_upper_limit;
+            q_min(j)=urdf_model.joints_.at(joint_name)->safety->soft_lower_limit;
         }
         else
         {
-            container->q_max(j)=urdf_model.joints_.at(joint_name)->limits->upper;
-            container->q_min(j)=urdf_model.joints_.at(joint_name)->limits->lower;
+            q_max(j)=urdf_model.joints_.at(joint_name)->limits->upper;
+            q_min(j)=urdf_model.joints_.at(joint_name)->limits->lower;
         }
         j++;
     }
-    uint max_iter = MAX_ITER;
-    container->iksolver= new KDL::ChainIkSolverPos_NR_JL(container->chain,container->q_min,container->q_max,*container->fksolver,*container->ikvelsolver,max_iter,eps);
     
-    std::string chain_root = container->chain.getSegment(0).getName();
-    std::string robot_root = robot_kdl.getRootSegment()->first;
-    // code from KDL::tree.cpp
-    // walk down from chain_root to the root of the tree
-    std::vector<KDL::SegmentMap::key_type> parents_chain_root;
-    for (KDL::SegmentMap::const_iterator s=robot_kdl.getSegment(chain_root); s!=robot_kdl.getSegments().end(); s = s->second.parent){
-        parents_chain_root.push_back(s->first);
-        if (s->first == robot_root) break;
-    }
-    if (parents_chain_root.empty() || parents_chain_root.back() != robot_root)
+    if(!container.setSolverParameters(q_min,q_max,gravity,MAX_ITER,eps,150,1e-5,1e-5) || !container.initSolvers())
     {
-        ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : there has been an error while looking for robot_root in chain_root ancestors...");
+        std::cout << CLASS_NAMESPACE << __func__ << " : unable to initialize the solvers! Returning..." << std::endl;
         abort();
     }
-    
-    #if DEBUG>1
-    std::cout << "parents_chain_root: [";
-    #endif
-    int j_count = 0;
-    for(int i=0; i<parents_chain_root.size() && i<container->chain.getNrOfSegments(); i++)
-    {
-        #if DEBUG>1
-        std::cout << parents_chain_root[i] << " ";
-        #endif
-        
-        const KDL::Segment& seg=container->chain.getSegment(i);
-        if( seg.getName() != parents_chain_root[i] )
-        {
-            #if DEBUG>1
-            continue;
-            #else
-            break;
-            #endif
-        }
-        else if( seg.getJoint().getType() != KDL::Joint::None )
-            container->tau_multiplier.at(j_count++) = -1;
-    }
-    #if DEBUG>1
-    std::cout << "]" << std::endl;
-    #endif
-    #if DEBUG>0
-    std::cout << "Changed " << j_count << " joint torques directions!" << std::endl;
-    #endif
 }
 
 bool simple_chain_ik_solver::publishConfig(const std::vector< std::string >& joint_names, const KDL::JntArray& q)
@@ -256,11 +180,11 @@ bool simple_chain_ik_solver::normalizePoses(std::vector< geometry_msgs::Pose >& 
 
 bool simple_chain_ik_solver::get_ik(const std::string& chain, const KDL::Frame& ee, const KDL::JntArray& q_init, KDL::JntArray& q_out, bool publish)
 {
-    int res = solvers.at(chain).iksolver->CartToJnt(q_init,ee,q_out);
+    int res = solvers.at(chain)->getIKSolver()->CartToJnt(q_init,ee,q_out);
     
     if(publish)
     {
-        publishConfig(solvers.at(chain).joint_names,q_out);
+        publishConfig(solvers.at(chain)->jointNames(),q_out);
     }
     
     return (res>=0);
@@ -268,11 +192,11 @@ bool simple_chain_ik_solver::get_ik(const std::string& chain, const KDL::Frame& 
 
 bool simple_chain_ik_solver::get_fk(const std::string& chain, const KDL::JntArray& j, KDL::Frame& ee, bool publish)
 {
-    int res = solvers.at(chain).fksolver->JntToCart(j,ee);
+    int res = solvers.at(chain)->getFKSolver()->JntToCart(j,ee);
     
     if(publish)
     {
-        publishConfig(solvers.at(chain).joint_names,j);
+        publishConfig(solvers.at(chain)->jointNames(),j);
     }
     
     return (res>=0);
@@ -287,40 +211,12 @@ bool simple_chain_ik_solver::get_gravity(const std::string& chain, const KDL::Jn
 
 bool simple_chain_ik_solver::get_gravity(const std::string& chain, const KDL::JntArray& j, const std::map<std::string,KDL::Wrench>& w_ext, KDL::JntArray& tau, bool publish)
 {
-    int nj = solvers.at(chain).chain.getNrOfJoints();
-    KDL::JntArray qzero(nj);
-    KDL::Wrenches f_ext(solvers.at(chain).chain.getNrOfSegments(),KDL::Wrench(KDL::Vector::Zero(),KDL::Vector::Zero()));
-    
-    // add the external wrench in the appropriate position
-    int counter = 0, w_counter = w_ext.size();
-    for(KDL::Segment seg:solvers.at(chain).chain.segments)
-    {
-        if(w_counter <= 0)
-            break;
-        if(w_ext.count(seg.getName()))
-        {
-            f_ext.at(counter) = w_ext.at(seg.getName());
-            w_counter--;
-        }
-        counter++;
-    }
-
-    int res = solvers.at(chain).idsolver->CartToJnt(j,qzero,qzero,f_ext,tau);
-    if(res<0)
-    {
-        ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : unable to get the right ID, did you use the right dimensions?");
+    if (!solvers.at(chain)->getGravity(j,w_ext,tau))
         return false;
-    }
-    
-    // rectify the sign of torques for switched joint axes
-    for(int i=0; i<tau.rows(); i++)
-    {
-        tau(i) *= solvers[chain].tau_multiplier[i];
-    }
     
     if(publish)
     {
-        publishConfig(solvers.at(chain).joint_names,j);
+        publishConfig(solvers.at(chain)->jointNames(),j);
     }
     
     return true;

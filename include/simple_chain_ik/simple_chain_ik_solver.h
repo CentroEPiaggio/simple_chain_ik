@@ -1,35 +1,12 @@
 #ifndef SIMPLE_CHAIN_IK_SOLVER_H
 #define SIMPLE_CHAIN_IK_SOLVER_H
 #include <ros/ros.h>
-#include <kdl/frames.hpp>
-#include <kdl/chain.hpp>
-#include <kdl/jntarray.hpp>
-#include <kdl/chainiksolvervel_pinv.hpp>
-#include <kdl/chainiksolverpos_nr_jl.hpp>
-#include <kdl/chainfksolverpos_recursive.hpp>
-#include <kdl/tree.hpp>
 #include <XmlRpcValue.h>
 #include <geometry_msgs/Pose.h>
 #include <urdf/model.h>
-#include <kdl/chainidsolver_recursive_newton_euler.hpp>
 #include <kdl/treefksolverpos_recursive.hpp>
 
-#define BIG_NR 10000
-
-class chain_and_solvers
-{
-public:
-    KDL::Chain chain;
-    KDL::ChainFkSolverPos_recursive* fksolver=0;
-    KDL::ChainIkSolverPos_NR_JL* iksolver=0;
-    KDL::ChainIkSolverVel_pinv* ikvelsolver=0;
-    KDL::ChainIdSolver_RNE* idsolver=0;
-    std::vector<std::string> joint_names;
-    int index;
-    KDL::JntArray q_min, q_max;
-    std::vector<double> tau_multiplier;
-};
-
+#include "simple_chain_ik/chain_and_solvers.h"
 
 class simple_chain_ik_solver
 {
@@ -40,7 +17,7 @@ public:
     bool get_gravity(const std::string& chain, const KDL::JntArray& j, KDL::JntArray& tau, bool publish = false);
     bool get_gravity(const std::string& chain, const KDL::JntArray& j, const std::map< std::string, KDL::Wrench >& w_ext, KDL::JntArray& tau, bool publish = false);
 private:
-    void initialize_solvers(chain_and_solvers* container, const KDL::Tree& robot_kdl, int chain_index) const;
+    void initialize_solvers(ChainAndSolvers& container) const; //, const KDL::Tree& robot_kdl, int chain_index) const;
     void parseParameters(XmlRpc::XmlRpcValue& params);
     bool publishConfig(const std::vector< std::string >& joint_names, const KDL::JntArray& q);
     bool normalizePoses(std::vector< geometry_msgs::Pose >& poses);
@@ -49,16 +26,15 @@ private:
     ros::NodeHandle nh;
     std::string robot_urdf;
     urdf::Model urdf_model;
-    KDL::Tree robot_kdl;
     std::vector<std::string> chain_names_list;
     std::vector<std::string> chain_roots_list;
     std::vector<std::string> chain_ees_list;
     std::map<std::string,KDL::Chain> chains;
-    std::map<std::string,KDL::Chain> chains_reverse;
-    std::map<std::string,chain_and_solvers> solvers;
+    std::map<std::string,std::unique_ptr<ChainAndSolvers>> solvers;
     ros::Publisher joint_state_pub;
     KDL::Vector gravity;
-    KDL::TreeFkSolverPos_recursive* tree_fk;
+    std::shared_ptr<KDL::TreeFkSolverPos_recursive> tree_fk;
+    std::shared_ptr<KDL::Tree> tree;
 };
 
 #endif // SIMPLE_CHAIN_IK_SOLVER_H
