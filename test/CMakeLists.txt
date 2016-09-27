@@ -10,3 +10,10 @@ target_link_libraries(simple_chain_ik_test
     simple_chain_ik_solver
     ${catkin_LIBRARIES}
 )
+
+add_executable(chain_and_solvers_test chain_and_solvers_test_using_vito.cpp)
+add_dependencies(chain_and_solvers_test ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(chain_and_solvers_test
+    chain_and_solvers
+    ${catkin_LIBRARIES}
+)

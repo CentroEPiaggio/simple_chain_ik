@@ -121,7 +121,9 @@ generate_messages(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES simple_chain_ik
+ LIBRARIES
+    chain_and_solvers
+    simple_chain_ik_solver
  CATKIN_DEPENDS 
     message_runtime
 #  DEPENDS system_lib
@@ -140,13 +142,20 @@ include_directories(
 )
 
 ## Declare a C++ library
-add_library(simple_chain_ik_solver
-  src/simple_chain_ik_solver.cpp
+add_library(chain_and_solvers
   src/chain_and_solvers.cpp
 )
-add_dependencies(simple_chain_ik_solver ${catkin_EXPORTED_TARGETS})
+target_link_libraries(chain_and_solvers
+    ${catkin_LIBRARIES}
+)
+
+add_library(simple_chain_ik_solver
+  src/simple_chain_ik_solver.cpp
+)
+add_dependencies(simple_chain_ik_solver ${catkin_EXPORTED_TARGETS} chain_and_solvers)
 target_link_libraries(simple_chain_ik_solver
     ${catkin_LIBRARIES}
+    chain_and_solvers
 )
 
 ## Add cmake target dependencies of the library

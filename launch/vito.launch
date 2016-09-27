@@ -1,0 +1,24 @@
+<launch>
+    <arg name="gui" default="true" />
+    <arg name="test" default="false" />
+
+    <!-- send the robot XML to param server -->
+    <param name="robot_description" command="$(find xacro)/xacro.py $(find vito_description)/robot/vito.urdf.xacro use_mimic_tag:=true"/>
+
+    <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" >
+        <param name="use_gui" value="$(arg gui)"/>
+        <rosparam param="source_list">[simple_chain_ik/joint_states]</rosparam>
+    </node>
+
+    <!-- start robot state publisher -->
+    <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" output="screen" />
+
+    <!-- load parameters on the server -->
+    <!--<rosparam file="$(find simple_chain_ik)/config/qb_legs_params.yaml" command="load"/>-->
+
+    <!-- launch the test executable -->
+    <group if="$(arg test)">
+        <node name="chain_and_solvers_test" pkg="simple_chain_ik" type="chain_and_solvers_test" output="screen" />
+    </group>
+
+</launch>
