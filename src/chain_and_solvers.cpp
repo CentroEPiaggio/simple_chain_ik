@@ -35,7 +35,9 @@ bool ChainAndSolvers::onChainChanged()
 {
     initialized = false;
     
+    /// reset variables connected to the extra frame at the end-effector
     ee_tip = KDL::Frame::Identity();
+    Mx.setIdentity(Mx.RowsAtCompileTime,Mx.ColsAtCompileTime);
     
     if (!tree->getChain(chain_root,chain_tip,chain_orig))
     {
@@ -173,6 +175,7 @@ bool ChainAndSolvers::initSolvers()
     fksolver.reset(new KDL::ChainFkSolverPos_recursive(chain));
     ikvelsolver.reset(new KDL::ChainIkSolverVel_wdls(chain,vel_IK_eps,vel_IK_max_iter));
     ikvelsolver->setLambda(vel_IK_lambda);
+    ikvelsolver->setWeightTS(Mx);
     iksolver.reset(new KDL::ChainIkSolverPos_NR_JL(chain,q_min,q_max,*fksolver,*ikvelsolver,pos_IK_max_iter,pos_IK_eps));
     idsolver.reset(new KDL::ChainIdSolver_RNE(chain,gravity));
     
@@ -266,4 +269,16 @@ void ChainAndSolvers::changeTip(const KDL::Frame& ee_tip_)
 {
     initialized = false;
     ee_tip = ee_tip_;
+}
+
+bool ChainAndSolvers::changeIkTaskWeigth(const Eigen::Matrix<double,6,6>& Mx_)
+{
+    Eigen::LDLT<Eigen::Matrix<double,6,6>> cholOfMx(Mx_);
+    if(!cholOfMx.isPositive())
+        return false;
+    
+    Mx = Mx_;
+    if(initialized)
+        ikvelsolver->setWeightTS(Mx);
+    return true;
 }

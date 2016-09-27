@@ -4,7 +4,6 @@
 #include <kdl/frames.hpp>
 #include <kdl/chain.hpp>
 #include <kdl/jntarray.hpp>
-// #include <kdl/chainiksolvervel_pinv.hpp>
 #include <kdl/chainiksolvervel_wdls.hpp>
 #include <kdl/chainiksolverpos_nr_jl.hpp>
 #include <kdl/chainfksolverpos_recursive.hpp>
@@ -12,6 +11,7 @@
 #include <kdl/tree.hpp>
 #include <kdl/treefksolver.hpp>
 #include <memory>
+#include <eigen3/Eigen/Dense>
 
 namespace ChainAndSolversTypes
 {
@@ -82,7 +82,6 @@ public:
     std::unique_ptr< ChainAndSolversTypes::ChainFkSolverPos >& getFKSolver();
     std::unique_ptr< ChainAndSolversTypes::ChainIkSolverVel >& getIKVelSolver();
     
-    // other interface functions - TBD
     /**
      * @brief Get a random valid joint array (between minimum and maximum)
      * 
@@ -97,7 +96,15 @@ public:
      */
     void changeTip(const KDL::Frame& ee_tip_);
     
-//     changeTaskWeigth();
+    /**
+     * @brief Change the weight of the task for computing inverse kinematics, i.e. how each direction is weighted in terms of the error: default to Identity. A weight of zero on a direction means it is not considered (the error can be very large), while a higher value means the task is weighted more along that direction.
+     * 
+     * @param Mx task space weighting symetric matrix, (semi-)positive definite
+     * 
+     * @return true on success
+     * @see KDL::ChainIkSolverVel_wdls::setWeightTS for more information
+     */
+    bool changeIkTaskWeigth(const Eigen::Matrix<double,6,6>& Mx_);
     
 private:
     
@@ -165,6 +172,8 @@ private:
     const KDL::Vector tree_root_gravity;
     /// frame containing the tip to use for IK/FK computation, w.r.t. the end-effector
     KDL::Frame ee_tip;
+    /// matrix to be used for weighting the task for IK computation; has to be simmetric and (semi-)positive definite
+    Eigen::Matrix<double,6,6> Mx;
 };
 
 #endif // CHAIN_AND_SOLVERS_H_
