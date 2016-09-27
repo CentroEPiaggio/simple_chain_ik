@@ -83,12 +83,6 @@ bool ChainAndSolvers::setSolverParameters(const KDL::JntArray& q_min_, const KDL
     q_max = q_max_;
     q_min = q_min_;
     
-    if(q_max.rows() != q_min.rows() || q_max.rows() != chain_orig.getNrOfJoints())
-    {
-        std::cout << CLASS_NAMESPACE << __func__ << " : q_max (" << q_max.rows() << ") and q_min (" << q_min.rows() << ") must have the same size, equal to the number of joints in the chain (" << chain_orig.getNrOfJoints() << ")!" << std::endl;
-        return false;
-    }
-    
     return true;
 }
 
@@ -167,6 +161,12 @@ bool ChainAndSolvers::computeTauMultipliers()
 
 bool ChainAndSolvers::initSolvers()
 {
+    if(q_max.rows() != q_min.rows() || q_max.rows() != chain_orig.getNrOfJoints())
+    {
+        std::cout << CLASS_NAMESPACE << __func__ << " : q_max (" << q_max.rows() << ") and q_min (" << q_min.rows() << ") must have the same size, equal to the number of joints in the chain (" << chain_orig.getNrOfJoints() << ")!" << std::endl;
+        return false;
+    }
+    
     chain = chain_orig;
     chain.addSegment(KDL::Segment("ee_tip",KDL::Joint(KDL::Joint::None),ee_tip,KDL::RigidBodyInertia::Zero()));
     
