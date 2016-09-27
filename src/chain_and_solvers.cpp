@@ -7,19 +7,19 @@
 #define CLASS_NAMESPACE "ChainAndSolvers::"
 #define DEBUG 0
 
-ChainAndSolvers::ChainAndSolvers(const std::shared_ptr< KDL::Tree >& tree_, const std::shared_ptr< KDL::TreeFkSolverPos >& tree_fk_, const std::string& chain_root_, const std::string& chain_tip_) : tree(tree_), tree_fk(tree_fk_), chain_root(chain_root_), chain_tip(chain_tip_)
+ChainAndSolvers::ChainAndSolvers(const std::shared_ptr< KDL::Tree >& tree_, const std::shared_ptr< KDL::TreeFkSolverPos >& tree_fk_, const std::string& chain_root_, const std::string& chain_tip_, const KDL::Vector& tree_root_gravity_) : tree(tree_), tree_fk(tree_fk_), chain_root(chain_root_), chain_tip(chain_tip_), tree_root_gravity(tree_root_gravity_)
 {
-    onChainChanged();
+    if(!onChainChanged()) abort();
 }
 
-ChainAndSolvers::ChainAndSolvers(const std::shared_ptr< KDL::Tree >& tree_, const std::string& chain_root_, const std::string& chain_tip_) : tree(tree_), chain_root(chain_root_), chain_tip(chain_tip_)
+ChainAndSolvers::ChainAndSolvers(const std::shared_ptr< KDL::Tree >& tree_, const std::string& chain_root_, const std::string& chain_tip_, const KDL::Vector& tree_root_gravity_) : tree(tree_), chain_root(chain_root_), chain_tip(chain_tip_), tree_root_gravity(tree_root_gravity_)
 {
     tree_fk.reset(new KDL::TreeFkSolverPos_recursive(*tree));
     
-    onChainChanged();
+    if(!onChainChanged()) abort();
 }
 
-ChainAndSolvers::ChainAndSolvers(const KDL::Chain& chain_)
+ChainAndSolvers::ChainAndSolvers(const KDL::Chain& chain_, const KDL::Vector& tree_root_gravity_) : tree_root_gravity(tree_root_gravity_)
 {
     /// a fake_root is needed in the tree in order to get a chain which is equal to the one passed as input (as it will not contain the first segment)
     tree.reset(new KDL::Tree("fake_root"));
@@ -28,17 +28,17 @@ ChainAndSolvers::ChainAndSolvers(const KDL::Chain& chain_)
     chain_root = "fake_root";
     chain_tip = chain_.segments.back().getName();
     
-    onChainChanged();
+    if(!onChainChanged()) abort();
 }
 
-void ChainAndSolvers::onChainChanged()
+bool ChainAndSolvers::onChainChanged()
 {
     initialized = false;
     
     if (!tree->getChain(chain_root,chain_tip,chain_orig))
     {
         std::cout << CLASS_NAMESPACE << __func__ << " : unable to get Chain from Tree - aborting!" << std::endl;
-        abort();
+        return false;
     }
 #if DEBUG>2
     std::cout << "chain_root: " << chain_root << std::endl;
@@ -63,10 +63,13 @@ void ChainAndSolvers::onChainChanged()
     
     assert(joint_names.size() == chain_orig.getNrOfJoints());
     
-    computeTauMultipliers();
+    if(!computeTauMultipliers() || !computeLocalGravity(tree_root_gravity))
+        return false;
+    
+    return true;
 }
 
-bool ChainAndSolvers::setSolverParameters(const KDL::JntArray& q_min_, const KDL::JntArray& q_max_, const KDL::Vector& tree_root_gravity_, uint pos_IK_max_iter_, double pos_IK_eps_, uint vel_IK_max_iter_, double vel_IK_eps_, double vel_IK_lambda_)
+bool ChainAndSolvers::setSolverParameters(const KDL::JntArray& q_min_, const KDL::JntArray& q_max_, uint pos_IK_max_iter_, double pos_IK_eps_, uint vel_IK_max_iter_, double vel_IK_eps_, double vel_IK_lambda_)
 {
     initialized = false;
     
@@ -83,9 +86,6 @@ bool ChainAndSolvers::setSolverParameters(const KDL::JntArray& q_min_, const KDL
         std::cout << CLASS_NAMESPACE << __func__ << " : q_max (" << q_max.rows() << ") and q_min (" << q_min.rows() << ") must have the same size, equal to the number of joints in the chain (" << chain_orig.getNrOfJoints() << ")!" << std::endl;
         return false;
     }
-    
-    if(!computeLocalGravity(tree_root_gravity_))
-        return false;
     
     return true;
 }
@@ -159,6 +159,8 @@ bool ChainAndSolvers::computeTauMultipliers()
     #if DEBUG>0
     std::cout << "Changed " << j_count << " joint torques directions!" << std::endl;
     #endif
+    
+    return true;
 }
 
 bool ChainAndSolvers::initSolvers()

@@ -87,7 +87,7 @@ simple_chain_ik_solver::simple_chain_ik_solver() : gravity(0.0,0.0,-9.81)
         std::cout << std::endl;
         #endif
         
-        solvers[chain_names_list.at(i)].reset(new ChainAndSolvers(tree,tree_fk,chain_roots_list.at(i),chain_ees_list.at(i)));
+        solvers[chain_names_list.at(i)].reset(new ChainAndSolvers(tree,tree_fk,chain_roots_list.at(i),chain_ees_list.at(i),gravity));
         
         initialize_solvers(*solvers[chain_names_list.at(i)]);
     }
@@ -130,7 +130,7 @@ void simple_chain_ik_solver::initialize_solvers(ChainAndSolvers& container) cons
         j++;
     }
     
-    if(!container.setSolverParameters(q_min,q_max,gravity,MAX_ITER,eps,150,1e-5,1e-5) || !container.initSolvers())
+    if(!container.setSolverParameters(q_min,q_max,MAX_ITER,eps,150,1e-5,1e-5) || !container.initSolvers())
     {
         std::cout << CLASS_NAMESPACE << __func__ << " : unable to initialize the solvers! Returning..." << std::endl;
         abort();

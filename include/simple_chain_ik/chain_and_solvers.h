@@ -31,28 +31,28 @@ public:
      * @param tree_fk_ A shared pointer to a KDL tree FK position solver
      * @param chain_root_ The root name of the chain to be used
      * @param chain_tip_ The tip of the chain to be used
+     * @param tree_root_gravity_ The gravity expressed in the root of the tree: will be later converted in the root of the chain
      */
-    ChainAndSolvers(const std::shared_ptr< KDL::Tree >& tree_, const std::shared_ptr<KDL::TreeFkSolverPos>& tree_fk_, const std::string& chain_root_, const std::string& chain_tip_);
+    ChainAndSolvers(const std::shared_ptr< KDL::Tree >& tree_, const std::shared_ptr< KDL::TreeFkSolverPos >& tree_fk_, const std::string& chain_root_, const std::string& chain_tip_, const KDL::Vector& tree_root_gravity_);
     
     /// @brief Constructor
-    ChainAndSolvers(const std::shared_ptr<KDL::Tree>& tree_, const std::string& chain_root, const std::string& chain_tip);
+    ChainAndSolvers(const std::shared_ptr< KDL::Tree >& tree_, const std::string& chain_root_, const std::string& chain_tip_, const KDL::Vector& tree_root_gravity_);
     
     /// @brief Constructor
-    ChainAndSolvers(const KDL::Chain& chain_);
+    ChainAndSolvers(const KDL::Chain& chain_, const KDL::Vector& tree_root_gravity_);
     
     /**
      * @brief Set all parameters needed by the solvers
      * 
      * @param q_min_ vector of min values for the joints
      * @param q_max_ vector of max values for the joints
-     * @param tree_root_gravity_ gravity vector expressed in the tree root frame
      * @param pos_IK_max_iter_ maximum number of iterations to be used in the position IK solver
      * @param pos_IK_eps_ tolerance to be used in the position IK solver
      * @param vel_IK_max_iter_ maximum number of iterations to be used in the velocity IK solver
      * @param vel_IK_eps_ tolerance to be used in the velocity IK solver (for computing the pseudo-inverse)
      * @param vel_IK_lambda_ damping parameter to be used in the velocity IK solver (for computing the pseudo-inverse)
      */
-    bool setSolverParameters(const KDL::JntArray& q_min_, const KDL::JntArray& q_max_, const KDL::Vector& tree_root_gravity_, uint pos_IK_max_iter_, double pos_IK_eps_, uint vel_IK_max_iter_, double vel_IK_eps_, double vel_IK_lambda_);
+    bool setSolverParameters(const KDL::JntArray& q_min_, const KDL::JntArray& q_max_, uint pos_IK_max_iter_, double pos_IK_eps_, uint vel_IK_max_iter_, double vel_IK_eps_, double vel_IK_lambda_);
     
     /**
      * @brief Initialize the solvers with the currently set parameters
@@ -100,8 +100,10 @@ private:
     /**
      * @brief Actions needed when the Chain gets changed
      * NOTE: this can support chaining root/tip of the chain
+     * 
+     * @return false if something went wrong
      */
-    void onChainChanged();
+    bool onChainChanged();
     
     /**
      * @brief compute the gravity in a frame local to the chain root, starting from gravity in a frame local to the tree root
@@ -155,6 +157,8 @@ private:
     std::string chain_root, chain_tip;
     /// local gravity expressed in the root of the chain
     KDL::Vector gravity;
+    /// gravity expressed in the root of the tree
+    const KDL::Vector tree_root_gravity;
 };
 
 #endif // CHAIN_AND_SOLVERS_H_
