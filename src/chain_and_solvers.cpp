@@ -2,12 +2,32 @@
 #include <iostream>
 #include <kdl/frames_io.hpp>
 #include <kdl/kinfam_io.hpp>
+#include <kdl/treefksolverpos_recursive.hpp>
 
 #define CLASS_NAMESPACE "ChainAndSolvers::"
 #define DEBUG 0
 
 ChainAndSolvers::ChainAndSolvers(const std::shared_ptr< KDL::Tree >& tree_, const std::shared_ptr< KDL::TreeFkSolverPos >& tree_fk_, const std::string& chain_root_, const std::string& chain_tip_) : tree(tree_), tree_fk(tree_fk_), chain_root(chain_root_), chain_tip(chain_tip_)
 {
+    onChainChanged();
+}
+
+ChainAndSolvers::ChainAndSolvers(const std::shared_ptr< KDL::Tree >& tree_, const std::string& chain_root_, const std::string& chain_tip_) : tree(tree_), chain_root(chain_root_), chain_tip(chain_tip_)
+{
+    tree_fk.reset(new KDL::TreeFkSolverPos_recursive(*tree));
+    
+    onChainChanged();
+}
+
+ChainAndSolvers::ChainAndSolvers(const KDL::Chain& chain_)
+{
+    /// a fake_root is needed in the tree in order to get a chain which is equal to the one passed as input (as it will not contain the first segment)
+    tree.reset(new KDL::Tree("fake_root"));
+    tree->addChain(chain_,"fake_root");
+    tree_fk.reset(new KDL::TreeFkSolverPos_recursive(*tree));
+    chain_root = "fake_root";
+    chain_tip = chain_.segments.back().getName();
+    
     onChainChanged();
 }
 
@@ -20,6 +40,14 @@ void ChainAndSolvers::onChainChanged()
         std::cout << CLASS_NAMESPACE << __func__ << " : unable to get Chain from Tree - aborting!" << std::endl;
         abort();
     }
+#if DEBUG>2
+    std::cout << "chain_root: " << chain_root << std::endl;
+    std::cout << "chain_tip: " << chain_tip << std::endl;
+    std::cout << "chain segment names: ";
+    for(auto& seg:chain_orig.segments)
+        std::cout << seg.getName() << " ";
+    std::cout << std::endl;
+#endif
     
     joint_names.clear();
     for (const KDL::Segment& segment: chain_orig.segments)

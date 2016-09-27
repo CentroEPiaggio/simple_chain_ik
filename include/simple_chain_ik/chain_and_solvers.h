@@ -17,7 +17,7 @@ class ChainAndSolvers
 {
 public:
     /**
-     * @brief Constructor
+     * @brief Full constructor - all other will construct members these parameters internally
      * 
      * @param tree_ A shared pointer to a KDL tree which will be used to get the chain
      * @param tree_fk_ A shared pointer to a KDL tree FK position solver
@@ -26,9 +26,11 @@ public:
      */
     ChainAndSolvers(const std::shared_ptr< KDL::Tree >& tree_, const std::shared_ptr<KDL::TreeFkSolverPos>& tree_fk_, const std::string& chain_root_, const std::string& chain_tip_);
     
-    /// Other constructors - TBD
-//     ChainAndSolvers(const std::shared_ptr<KDL::Tree>& tree_, const std::string& chain_root, const std::string& chain_tip);
-//     ChainAndSolvers(const KDL::Chain& chain_);
+    /// @brief Constructor
+    ChainAndSolvers(const std::shared_ptr<KDL::Tree>& tree_, const std::string& chain_root, const std::string& chain_tip);
+    
+    /// @brief Constructor
+    ChainAndSolvers(const KDL::Chain& chain_);
     
     /**
      * @brief Set all parameters needed by the solvers
