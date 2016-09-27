@@ -243,3 +243,16 @@ std::unique_ptr< ChainAndSolversTypes::ChainIkSolverVel >& ChainAndSolvers::getI
     std::cout << CLASS_NAMESPACE << __func__ << " : getting non-initialized solver not allowed!" << std::endl;
     abort();
 }
+
+KDL::JntArray ChainAndSolvers::getValidRandomJoints()
+{
+    if(!initialized)
+        return KDL::JntArray();
+    
+    KDL::JntArray ret(q_max.rows());
+    ret.data.setRandom(ret.data.rows(),ret.data.cols());
+    ret.data.array() += 1;
+    ret.data /= 2.0;
+    ret.data = q_min.data + ret.data.cwiseProduct(q_max.data - q_min.data);
+    return ret;
+}

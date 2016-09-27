@@ -83,8 +83,12 @@ public:
     std::unique_ptr< ChainAndSolversTypes::ChainIkSolverVel >& getIKVelSolver();
     
     // other interface functions - TBD
-    /// Get a random valid joint array (between minimum and maximum)
-//     getValidRandomJoints();
+    /**
+     * @brief Get a random valid joint array (between minimum and maximum)
+     * 
+     * @return A joint array, granted to have values between minimum and maximum allowed, as passed in @p setSolverParameters
+     */
+    KDL::JntArray getValidRandomJoints();
     
 //     /// Changes the constant frame at the tip of the chain used for computing IK and FK. When this function is called, all solvers get erased and created as new, so any property which was set on the solver directly, and not through this class interface, needs to be set again.
 //     void changeTip(const KDL::Frame& ee_tip_);
