@@ -217,7 +217,7 @@ bool ChainAndSolvers::getGravity(const KDL::JntArray& j, const std::map< std::st
     return true;
 }
 
-std::unique_ptr< KDL::ChainFkSolverPos_recursive >& ChainAndSolvers::getFKSolver()
+std::unique_ptr< ChainAndSolversTypes::ChainFkSolverPos >& ChainAndSolvers::getFKSolver()
 {
     if(initialized)
         return fksolver;
@@ -226,7 +226,7 @@ std::unique_ptr< KDL::ChainFkSolverPos_recursive >& ChainAndSolvers::getFKSolver
     abort();
 }
 
-std::unique_ptr< KDL::ChainIkSolverPos_NR_JL >& ChainAndSolvers::getIKSolver()
+std::unique_ptr< ChainAndSolversTypes::ChainIkSolverPos >& ChainAndSolvers::getIKSolver()
 {
     if(initialized)
         return iksolver;
@@ -235,7 +235,7 @@ std::unique_ptr< KDL::ChainIkSolverPos_NR_JL >& ChainAndSolvers::getIKSolver()
     abort();
 }
 
-std::unique_ptr< KDL::ChainIkSolverVel_wdls >& ChainAndSolvers::getIKVelSolver()
+std::unique_ptr< ChainAndSolversTypes::ChainIkSolverVel >& ChainAndSolvers::getIKVelSolver()
 {
     if(initialized)
         return ikvelsolver;

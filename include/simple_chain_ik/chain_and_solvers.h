@@ -13,6 +13,14 @@
 #include <kdl/treefksolver.hpp>
 #include <memory>
 
+namespace ChainAndSolversTypes
+{
+    typedef KDL::ChainIkSolverPos_NR_JL ChainIkSolverPos;
+    typedef KDL::ChainFkSolverPos_recursive ChainFkSolverPos;
+    typedef KDL::ChainIkSolverVel_wdls ChainIkSolverVel;
+    typedef KDL::ChainIdSolver_RNE ChainIdSolver;
+}
+
 class ChainAndSolvers
 {
 public:
@@ -70,9 +78,9 @@ public:
     bool getGravity(const KDL::JntArray& j, const std::map< std::string, KDL::Wrench >& w_ext, KDL::JntArray& tau);
     
     /// Direct access to internal members; can be used for calling member function(s), but it advised not to keep a reference, as the solver may be reinstanciated at run-time.
-    std::unique_ptr< KDL::ChainIkSolverPos_NR_JL >& getIKSolver();
-    std::unique_ptr< KDL::ChainFkSolverPos_recursive >& getFKSolver();
-    std::unique_ptr< KDL::ChainIkSolverVel_wdls >& getIKVelSolver();
+    std::unique_ptr< ChainAndSolversTypes::ChainIkSolverPos >& getIKSolver();
+    std::unique_ptr< ChainAndSolversTypes::ChainFkSolverPos >& getFKSolver();
+    std::unique_ptr< ChainAndSolversTypes::ChainIkSolverVel >& getIKVelSolver();
     
     // other interface functions - TBD
     /// Get a random valid joint array (between minimum and maximum)
@@ -116,10 +124,10 @@ private:
     /// chain which may contain an extra segment, needed for referencing a constant frame which is not the end-effector
     KDL::Chain chain;
     
-    std::unique_ptr<KDL::ChainFkSolverPos_recursive> fksolver; /// FK position solver
-    std::unique_ptr<KDL::ChainIkSolverPos_NR_JL> iksolver; /// IK position solver
-    std::unique_ptr<KDL::ChainIkSolverVel_wdls> ikvelsolver; /// IK velocity solver
-    std::unique_ptr<KDL::ChainIdSolver_RNE> idsolver; /// ID solver
+    std::unique_ptr<ChainAndSolversTypes::ChainFkSolverPos> fksolver; /// FK position solver
+    std::unique_ptr<ChainAndSolversTypes::ChainIkSolverPos> iksolver; /// IK position solver
+    std::unique_ptr<ChainAndSolversTypes::ChainIkSolverVel> ikvelsolver; /// IK velocity solver
+    std::unique_ptr<ChainAndSolversTypes::ChainIdSolver> idsolver; /// ID solver
     std::vector<std::string> joint_names;
     /// joint limits
     KDL::JntArray q_min, q_max;
