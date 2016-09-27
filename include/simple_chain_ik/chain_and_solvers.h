@@ -90,8 +90,12 @@ public:
      */
     KDL::JntArray getValidRandomJoints();
     
-//     /// Changes the constant frame at the tip of the chain used for computing IK and FK. When this function is called, all solvers get erased and created as new, so any property which was set on the solver directly, and not through this class interface, needs to be set again.
-//     void changeTip(const KDL::Frame& ee_tip_);
+    /**
+     * @brief Changes the constant frame at the tip of the chain used for computing IK and FK. When this function is called, all solvers get erased and created as new, so any property which was set on the solver directly, and not through this class interface, needs to be set again.
+     * 
+     * @param ee_tip_ a frame for the new tip, to be set w.r.t. the chain's end-effector
+     */
+    void changeTip(const KDL::Frame& ee_tip_);
     
 //     changeTaskWeigth();
     
@@ -159,6 +163,8 @@ private:
     KDL::Vector gravity;
     /// gravity expressed in the root of the tree
     const KDL::Vector tree_root_gravity;
+    /// frame containing the tip to use for IK/FK computation, w.r.t. the end-effector
+    KDL::Frame ee_tip;
 };
 
 #endif // CHAIN_AND_SOLVERS_H_

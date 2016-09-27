@@ -35,6 +35,8 @@ bool ChainAndSolvers::onChainChanged()
 {
     initialized = false;
     
+    ee_tip = KDL::Frame::Identity();
+    
     if (!tree->getChain(chain_root,chain_tip,chain_orig))
     {
         std::cout << CLASS_NAMESPACE << __func__ << " : unable to get Chain from Tree - aborting!" << std::endl;
@@ -166,6 +168,7 @@ bool ChainAndSolvers::computeTauMultipliers()
 bool ChainAndSolvers::initSolvers()
 {
     chain = chain_orig;
+    chain.addSegment(KDL::Segment("ee_tip",KDL::Joint(KDL::Joint::None),ee_tip,KDL::RigidBodyInertia::Zero()));
     
     fksolver.reset(new KDL::ChainFkSolverPos_recursive(chain));
     ikvelsolver.reset(new KDL::ChainIkSolverVel_wdls(chain,vel_IK_eps,vel_IK_max_iter));
@@ -257,4 +260,10 @@ KDL::JntArray ChainAndSolvers::getValidRandomJoints()
     ret.data /= 2.0;
     ret.data = q_min.data + ret.data.cwiseProduct(q_max.data - q_min.data);
     return ret;
+}
+
+void ChainAndSolvers::changeTip(const KDL::Frame& ee_tip_)
+{
+    initialized = false;
+    ee_tip = ee_tip_;
 }
