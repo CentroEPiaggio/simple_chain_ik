@@ -6,6 +6,7 @@
 
 #define CLASS_NAMESPACE "ChainAndSolvers::"
 #define DEBUG 0
+#define USING_CUSTOM_SOLVERS 1
 
 ChainAndSolvers::ChainAndSolvers(const std::shared_ptr< KDL::Tree >& tree_, const std::shared_ptr< KDL::TreeFkSolverPos >& tree_fk_, const std::string& chain_root_, const std::string& chain_tip_, const KDL::Vector& tree_root_gravity_) : tree(tree_), tree_fk(tree_fk_), chain_root(chain_root_), chain_tip(chain_tip_), tree_root_gravity(tree_root_gravity_)
 {
@@ -38,6 +39,7 @@ bool ChainAndSolvers::onChainChanged()
     /// reset variables connected to the extra frame at the end-effector
     ee_tip = KDL::Frame::Identity();
     Mx.setIdentity(Mx.RowsAtCompileTime,Mx.ColsAtCompileTime);
+    Wx.setOnes(Wx.RowsAtCompileTime,Wx.ColsAtCompileTime);
     
     if (!tree->getChain(chain_root,chain_tip,chain_orig))
     {
@@ -172,12 +174,15 @@ bool ChainAndSolvers::initSolvers()
     chain = chain_orig;
     chain.addSegment(KDL::Segment("ee_tip",KDL::Joint(KDL::Joint::None),ee_tip,KDL::RigidBodyInertia::Zero()));
     
-    fksolver.reset(new KDL::ChainFkSolverPos_recursive(chain));
-    ikvelsolver.reset(new KDL::ChainIkSolverVel_wdls(chain,vel_IK_eps,vel_IK_max_iter));
+    fksolver.reset(new ChainAndSolversTypes::ChainFkSolverPos(chain));
+    ikvelsolver.reset(new ChainAndSolversTypes::ChainIkSolverVel(chain,vel_IK_eps,vel_IK_max_iter));
     ikvelsolver->setLambda(vel_IK_lambda);
     ikvelsolver->setWeightTS(Mx);
-    iksolver.reset(new KDL::ChainIkSolverPos_NR_JL(chain,q_min,q_max,*fksolver,*ikvelsolver,pos_IK_max_iter,pos_IK_eps));
-    idsolver.reset(new KDL::ChainIdSolver_RNE(chain,gravity));
+    iksolver.reset(new ChainAndSolversTypes::ChainIkSolverPos(chain,q_min,q_max,*fksolver,*ikvelsolver,pos_IK_max_iter,pos_IK_eps));
+#if USING_CUSTOM_SOLVERS>0
+    iksolver->setTaskWeight(Wx);
+#endif
+    idsolver.reset(new ChainAndSolversTypes::ChainIdSolver(chain,gravity));
     
     initialized = true;
     
@@ -191,6 +196,9 @@ const std::vector< std::string >& ChainAndSolvers::jointNames()
 
 bool ChainAndSolvers::getGravity(const KDL::JntArray& j, const std::map< std::string, KDL::Wrench >& w_ext, KDL::JntArray& tau)
 {
+    if(!initialized)
+        return false;
+    
     int nj = chain.getNrOfJoints();
     KDL::JntArray qzero(nj);
     KDL::Wrenches f_ext(chain.getNrOfSegments(),KDL::Wrench(KDL::Vector::Zero(),KDL::Vector::Zero()));
@@ -271,14 +279,17 @@ void ChainAndSolvers::changeTip(const KDL::Frame& ee_tip_)
     ee_tip = ee_tip_;
 }
 
-bool ChainAndSolvers::changeIkTaskWeigth(const Eigen::Matrix<double,6,6>& Mx_)
+bool ChainAndSolvers::changeIkTaskWeigth(const Eigen::Matrix<double,6,1>& Wx_)
 {
-    Eigen::LDLT<Eigen::Matrix<double,6,6>> cholOfMx(Mx_);
-    if(!cholOfMx.isPositive())
-        return false;
-    
-    Mx = Mx_;
+    Wx = Wx_;
+    Mx = Wx_.asDiagonal();
     if(initialized)
-        ikvelsolver->setWeightTS(Mx);
+    {
+#if USING_CUSTOM_SOLVERS>0
+        iksolver->setTaskWeight(Wx);
+#endif
+        return (ikvelsolver->setWeightTS(Mx) == KDL::SolverI::E_NOERROR);
+    }
+    
     return true;
 }
