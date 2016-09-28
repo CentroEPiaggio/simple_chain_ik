@@ -145,8 +145,12 @@ include_directories(
 add_library(chain_and_solvers
   src/chain_and_solvers.cpp
 )
+add_dependencies(chain_and_solvers
+    my_kdl_lib # TODO remove this when KDL version >= 1.4.0
+)
 target_link_libraries(chain_and_solvers
     ${catkin_LIBRARIES}
+    my_kdl_lib # TODO remove this when KDL version >= 1.4.0
 )
 
 add_library(simple_chain_ik_solver
@@ -178,6 +182,9 @@ target_link_libraries(simple_chain_ik_node
 
 ## add test subdirectory
 add_subdirectory(test)
+
+# TODO remove this when KDL version will be above 1.4!!!
+add_subdirectory(my_kdl)
 
 #############
 ## Install ##
