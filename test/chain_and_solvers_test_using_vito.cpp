@@ -4,8 +4,11 @@
 #include <kdl_parser/kdl_parser.hpp>
 #include <kdl/treefksolverpos_recursive.hpp>
 #include <sensor_msgs/JointState.h>
+#include <kdl/frames_io.hpp>
 
 #define CLASS_NAMESPACE "chain_and_solvers_test::"
+
+KDL::Frame ee_tip = KDL::Frame(KDL::Vector(0.0,0.0,0.2));
 
 void initialize_solvers(ChainAndSolvers& container, const urdf::Model& urdf_model)
 {
@@ -50,6 +53,16 @@ bool publishConfig(const std::vector< std::string >& joint_names, const KDL::Jnt
     return true;
 }
 
+void computeAndDisplayDifference(const KDL::Frame& target, const KDL::JntArray& q_actual, ChainAndSolvers& solvers)
+{
+    KDL::Frame actual;
+    solvers.getFKSolver()->JntToCart(q_actual,actual);
+    KDL::Twist xi;
+    xi = KDL::diff(target,actual);
+    std::cout << "Difference: " << xi << std::endl;
+    std::cout << "Difference norm [rot+lin]: " << xi.rot.Norm() << "+" << xi.vel.Norm() << std::endl;
+}
+
 int main(int argc, char** argv)
 {
     while(!ros::isInitialized())
@@ -88,46 +101,93 @@ int main(int argc, char** argv)
     
     std::cout << "chain_and_solvers_test running!!!" << std::endl;
     
-    lh_solver.changeTip(KDL::Frame(KDL::Vector(0.0,0.0,0.2)));
+    lh_solver.changeTip(ee_tip);
     initialize_solvers(lh_solver,urdf_model);
     
     KDL::Frame target;
-    target.p = KDL::Vector(-0.9 , -0.1 , 0.07);
+    double init_y(-0.1), end_y(0.5);
+    target.p = KDL::Vector(-0.8 , init_y , 0.07);
     target.M = KDL::Rotation::RotY(M_PI); // x forward, z downward
     target.M.DoRotZ(M_PI/2.0);
     
-    KDL::JntArray q_out;
-    if(!lh_solver.getIKSolver()->CartToJnt(lh_solver.getValidRandomJoints(),target,q_out))
+    int nj = lh_solver.jointNames().size();
+    KDL::JntArray q_out(nj),q_init(nj);
+    q_init = lh_solver.getValidRandomJoints();
+    int solver_error = lh_solver.getIKSolver()->CartToJnt(q_init,target,q_out);
+    if(solver_error < 0)
     {
-        ROS_ERROR_STREAM(CLASS_NAMESPACE << " : unable to get first IK!");
+        ROS_ERROR_STREAM(CLASS_NAMESPACE << " : unable to get first IK! Error " << solver_error << " > " << lh_solver.getIKSolver()->strError(solver_error));
         return -10;
     }
-//     lh_solver.getIKSolver()->CartToJnt(lh_solver.getValidRandomJoints(),target,q_out);
     publishConfig(lh_solver.jointNames(),q_out,joint_state_pub);
+    computeAndDisplayDifference(target,q_out,lh_solver);
     
     ros::Duration tsleep(0.1);
     tsleep.sleep();
     
     // iterate with some frames
     int counter=0;
-    while(target.p.y() < 0.1)
+    while(target.p.y() < end_y)
     {
         ROS_INFO_STREAM(CLASS_NAMESPACE << " : computing IK #" << ++counter);
         target.p.y( target.p.y() + 0.025 );
         // use old q_out as new seed
-        if(!lh_solver.getIKSolver()->CartToJnt(q_out,target,q_out))
+        solver_error = lh_solver.getIKSolver()->CartToJnt(q_out,target,q_out);
+        if(solver_error < 0)
         {
-            ROS_ERROR_STREAM(CLASS_NAMESPACE << " : unable to get IK!");
-            return -10;
+            ROS_ERROR_STREAM(CLASS_NAMESPACE << " : unable to get IK! Error " << solver_error << " > " << lh_solver.getIKSolver()->strError(solver_error));
+            ROS_WARN_STREAM(CLASS_NAMESPACE << " : was able to move until y=" << target.p.y());
+            break;
         }
         publishConfig(lh_solver.jointNames(),q_out,joint_state_pub);
+        computeAndDisplayDifference(target,q_out,lh_solver);
         
         tsleep.sleep();
     }
     
-    while(ros::ok())
+    ROS_INFO_STREAM(CLASS_NAMESPACE << " : trying again adding some more tolerance for rotation...");
+    Eigen::Matrix<double,6,1> Mx;
+    Mx.setOnes(Mx.RowsAtCompileTime,Mx.ColsAtCompileTime);
+//     Mx(1,0) = 0.0;
+//     Mx(2,0) = 0.0;
+    Mx(3,0) = 0.0; // care less about x-rotation
+    Mx(4,0) = 0.0; // care less about y-rotation
+//     Mx(5,0) = 0.0; // care less about z-rotation
+    
+    target.p.y( init_y );
+    
+    // iterate with some frames
+    counter=0;
+    solver_error = lh_solver.getIKSolver()->CartToJnt(q_init,target,q_out);
+    if(solver_error < 0)
     {
+        ROS_ERROR_STREAM(CLASS_NAMESPACE << " : unable to get first IK! Error " << solver_error << " > " << lh_solver.getIKSolver()->strError(solver_error));
+        return -10;
+    }
+    publishConfig(lh_solver.jointNames(),q_out,joint_state_pub);
+    computeAndDisplayDifference(target,q_out,lh_solver);
+    tsleep.sleep();
+    
+    if(!lh_solver.changeIkTaskWeigth(Mx))
+        ROS_WARN_STREAM(CLASS_NAMESPACE << " : could not change TS weight as the matrix is not positive (semi-)definite!");
+    
+    while(target.p.y() < end_y)
+    {
+        ROS_INFO_STREAM(CLASS_NAMESPACE << " : computing relaxed IK #" << ++counter);
+        target.p.y( target.p.y() + 0.025 );
+        // use old q_out as new seed
+        solver_error = lh_solver.getIKSolver()->CartToJnt(q_out,target,q_out);
+        if(solver_error < 0)
+        {
+            ROS_ERROR_STREAM(CLASS_NAMESPACE << " : unable to get IK! Error " << solver_error << " > " << lh_solver.getIKSolver()->strError(solver_error));
+            ROS_WARN_STREAM(CLASS_NAMESPACE << " : was able to move until y=" << target.p.y());
+            break;
+        }
+        publishConfig(lh_solver.jointNames(),q_out,joint_state_pub);
+        computeAndDisplayDifference(target,q_out,lh_solver);
+        
         tsleep.sleep();
     }
+    
     return 0;
 }
