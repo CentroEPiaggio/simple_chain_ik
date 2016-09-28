@@ -141,9 +141,14 @@ include_directories(
     ${catkin_INCLUDE_DIRS}
 )
 
+set(SOLVER_FILES
+    src/chainiksolverpos_relaxed.cpp
+)
+
 ## Declare a C++ library
 add_library(chain_and_solvers
   src/chain_and_solvers.cpp
+  ${SOLVER_FILES}
 )
 add_dependencies(chain_and_solvers
     my_kdl_lib # TODO remove this when KDL version >= 1.4.0
