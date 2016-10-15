@@ -17,3 +17,6 @@ target_link_libraries(chain_and_solvers_test
     chain_and_solvers
     ${catkin_LIBRARIES}
 )
+
+add_executable(eigen_indexig_test eigen_indexig_test.cpp)
+target_link_libraries(eigen_indexig_test ${catkin_LIBRARIES})
