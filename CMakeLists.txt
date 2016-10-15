@@ -144,6 +144,7 @@ include_directories(
 
 set(SOLVER_FILES
     src/chainiksolverpos_relaxed.cpp
+    src/chainiksolvervel_MT_FP_JL.cpp
 )
 
 ## Declare a C++ library

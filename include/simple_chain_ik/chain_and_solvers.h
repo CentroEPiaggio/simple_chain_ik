@@ -7,7 +7,8 @@
 // #include <kdl/chainiksolverpos_nr_jl.hpp>
 #include <simple_chain_ik/solvers/chainiksolverpos_relaxed.hpp>
 // #include <kdl/chainiksolvervel_wdls.hpp>
-#include <my_chainiksolvervel_wdls.hpp>
+// #include <my_chainiksolvervel_wdls.hpp>
+#include <simple_chain_ik/solvers/chainiksolvervel_MT_FP_JL.hpp>
 #include <kdl/chainfksolverpos_recursive.hpp>
 #include <kdl/chainidsolver_recursive_newton_euler.hpp>
 #include <kdl/tree.hpp>
@@ -19,7 +20,8 @@ namespace ChainAndSolversTypes
 {
     typedef KDL::ChainIkSolverPos_relaxed ChainIkSolverPos;
     typedef KDL::ChainFkSolverPos_recursive ChainFkSolverPos;
-    typedef KDL::my_ChainIkSolverVel_wdls ChainIkSolverVel;
+    typedef KDL::ChainIkSolverVel_MT_FP_JL ChainIkSolverVel;
+    // typedef KDL::my_ChainIkSolverVel_wdls ChainIkSolverVel;
     // typedef KDL::ChainIkSolverVel_wdls ChainIkSolverVel;
     typedef KDL::ChainIdSolver_RNE ChainIdSolver;
 }

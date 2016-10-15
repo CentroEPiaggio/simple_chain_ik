@@ -7,6 +7,7 @@
 #include <kdl/frames_io.hpp>
 
 #define CLASS_NAMESPACE "chain_and_solvers_test::"
+#define DEBUG 2
 
 KDL::Frame ee_tip = KDL::Frame(KDL::Vector(0.0,0.0,0.2));
 
@@ -59,8 +60,10 @@ void computeAndDisplayDifference(const KDL::Frame& target, const KDL::JntArray& 
     solvers.getFKSolver()->JntToCart(q_actual,actual);
     KDL::Twist xi;
     xi = KDL::diff(target,actual);
+#if DEBUG>1
     std::cout << "Difference: " << xi << std::endl;
     std::cout << "Difference norm [rot+lin]: " << xi.rot.Norm() << "+" << xi.vel.Norm() << std::endl;
+#endif
 }
 
 int main(int argc, char** argv)
@@ -148,11 +151,12 @@ int main(int argc, char** argv)
     ROS_INFO_STREAM(CLASS_NAMESPACE << " : trying again adding some more tolerance for rotation...");
     Eigen::Matrix<double,6,1> Mx;
     Mx.setOnes(Mx.RowsAtCompileTime,Mx.ColsAtCompileTime);
-//     Mx(1,0) = 0.0;
-//     Mx(2,0) = 0.0;
+    Mx(1,0) = 0.9;
+    Mx(1,0) = 0.9;
+    Mx(2,0) = 1.0;
     Mx(3,0) = 0.0; // care less about x-rotation
-    Mx(4,0) = 0.0; // care less about y-rotation
-//     Mx(5,0) = 0.0; // care less about z-rotation
+    Mx(4,0) = 0.1; // care less about y-rotation
+    Mx(5,0) = 0.5; // care less about z-rotation
     
     target.p.y( init_y );
     
