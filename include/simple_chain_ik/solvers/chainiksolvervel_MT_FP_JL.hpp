@@ -6,7 +6,7 @@
 
 #include "kdl/chainiksolver.hpp"
 #include "kdl/chainjnttojacsolver.hpp"
-#include <Eigen/Core>
+#include <Eigen/Dense>
 
 namespace KDL
 {
@@ -27,6 +27,20 @@ namespace KDL
 
 static const int TS_dim = 6;
 static const int JS_dim = 7;
+
+typedef Eigen::Matrix<double,TS_dim,TS_dim> MatrixT;
+typedef Eigen::Matrix<double,JS_dim,JS_dim> MatrixJ;
+typedef Eigen::Matrix<double,-1,-1> MatrixX;
+typedef Eigen::Matrix<double,TS_dim,JS_dim> MatrixTJ;
+typedef Eigen::Matrix<double,JS_dim,TS_dim> MatrixJT;
+typedef Eigen::Matrix<double,TS_dim,-1> MatrixTX;
+typedef Eigen::Matrix<double,JS_dim,-1> MatrixJX;
+typedef Eigen::Matrix<double,-1,JS_dim> MatrixXJ;
+typedef Eigen::Matrix<double,-1,TS_dim> MatrixXT;
+typedef Eigen::Matrix<double,TS_dim,1> VectorT;
+typedef Eigen::Matrix<int,TS_dim,1> VectorTi;
+typedef Eigen::Matrix<double,JS_dim,1> VectorJ;
+typedef Eigen::Matrix<double,-1,1> VectorX;
 
 // template<int TS_dim, int JS_dim>
 class ChainIkSolverVel_MT_FP_JL : public ChainIkSolverVel
@@ -81,7 +95,7 @@ public:
     *
     * @return succes/error code
     */
-    int setWeightJS(const Eigen::MatrixXd& Mq);
+    int setWeightJS(const MatrixJ& Mq);
     
     /**
     * @brief Set the task space weighting
@@ -93,7 +107,7 @@ public:
     *
     * @return succes/error code
     */
-    int setWeightTS(const Eigen::MatrixXd& weights);
+    int setWeightTS(const MatrixT& weights);
     
     /**
     * @brief Set lambda parameter used in damping the eigenvalues of the SVD
@@ -116,7 +130,7 @@ public:
      * @param lower_bound Minimum for q
      * @param upper_bound Maximum for q
      */
-    void setJointLimits(const Eigen::ArrayXd& lower_bound, const Eigen::ArrayXd& upper_bound);
+    void setJointLimits(const VectorJ& lower_bound, const VectorJ& upper_bound);
     
     /**
     * @brief Return the value of eps
@@ -127,13 +141,6 @@ public:
     * @brief Return the value of lambda
     */
     double getLambda()const {return lambda;};
-    
-    /**
-    * @brief Return the latest return code from the SVD algorithm.
-    * 
-    * @return 0 if CartToJnt() not yet called, otherwise latest SVD result code.
-    */
-    int getSVDResult()const {return svdResult;};
     
     /// @copydoc KDL::SolverI::strError()
     virtual const char* strError(const int error) const;
@@ -152,43 +159,49 @@ private:
     /// KDL jacobian
     Jacobian jac_kdl;
     /// Eigen jacobian
-    Eigen::Matrix<double,TS_dim,JS_dim> jac;
+    MatrixTJ jac;
     
     // SVD parameters
-    /// matrixes to use for the Jacobian SVD: they will change size at each iteration
-    Eigen::MatrixXd svdU;
-    Eigen::VectorXd svdS;
-    Eigen::Matrix<double,JS_dim,JS_dim> svdV;
     /// tolerance for damping singular values
     double eps;
     /// maximum number of iterations for computing SVD
     int maxiter;
     /// damping parameter for the SVD
     double lambda;
-    /// latest return value while computing the SVD
-    int svdResult;
+    
+    // variables for computing IK
+    /// solution at step k-1
+    VectorJ S_k_old;
+    /// solution at step k
+    VectorJ S_k;
+    /// null-space projector at step k
+    MatrixJ N_k;
+    /// complete task specification
+    VectorT xi;
     
     // weighting-related parameters
     /// flag to say whether it is needed to multiply the Jacobian for the Joint Weight Matrix
     bool is_jac_weighted;
     /// weigth matrix in Task-space (only diagonal elements are considered)
-    Eigen::Matrix<double,TS_dim,TS_dim> weightTS;
+    MatrixT weightTS;
+    /// weight matrix used for limiting joint in null-space (Saturation in the Null-Space - SNS)
+    MatrixJ weightW;
     /// weight matrix in Joint-space
-    Eigen::Matrix<double,JS_dim,JS_dim> weightJS;
+    MatrixJ weightJS;
     /// number of tasks to perform (based on task-space weighting)
     uint task_nr_;
     /// list of indexes of tasks to perform
-    Eigen::Matrix<double,TS_dim,1> task_list_;
+    VectorTi task_list_;
     
     // joint limits
     /// joint lower bounds
-    Eigen::Matrix<double,JS_dim,1> q_lb;
+    VectorJ q_lb;
     /// joint upper bounds
-    Eigen::Matrix<double,JS_dim,1> q_ub;
+    VectorJ q_ub;
     /// joint velocity lower bounds
-    Eigen::Matrix<double,JS_dim,1> q_dot_lb;
+    VectorJ q_dot_lb;
     /// joint velocity upper bounds
-    Eigen::Matrix<double,JS_dim,1> q_dot_ub;
+    VectorJ q_dot_ub;
     
 private:
     /**
@@ -196,22 +209,39 @@ private:
      * 
      * @return jac_k
      */
-    void selectMatrixRows(const Eigen::Matrix<double,TS_dim,1>& task_list_, uint k, const Eigen::Matrix<double,TS_dim,JS_dim>& jac, Eigen::Matrix<double,-1,JS_dim>& jac_k) const;
+    void selectMatrixRows(const VectorTi& task_list_, uint k, const MatrixTJ& jac, MatrixXJ& jac_k) const;
+    void selectMatrixRows(const VectorTi& task_list_, uint k, const VectorT& xi, VectorX& xi_k) const;
     
     /**
      * @brief Check joint limits based on the newly received joint position and the currently computed velocities
      * 
      * @return -1 if all joints are inside the limits, otherwise the index of the "worst" joint (further apart from the limits)
      */
-    int checkVelocityLimits(const KDL::JntArray& q_in, const Eigen::Matrix<double,TS_dim,1>& q_dot_k);
+    int checkVelocityLimits(const VectorJ& q_in, const VectorJ& q_dot_k);
     
     /**
      * @brief Compute pseudo-inverse with damped-least-square
      * 
      * @return success/error code
      */
-    int pinvDLS(const Eigen::Matrix<double,-1,JS_dim>& NJ_k, Eigen::Matrix<double,JS_dim,-1>& NJ_k_pinv);
+    int pinvDLS(const MatrixXJ& NJ_k, MatrixJX& NJ_k_pinv);
     
+    /**
+     * @brief Compute maximum scaling parameter, given limits and currently computed solution
+     * 
+     * @param q_in current robot position
+     * @param a velocity contribution of the current task, with limited joints
+     * @param b difference between total task velocity and @p a
+     * @param r index of the most critical joint, which makes sense only if the return is non-zero
+     * 
+     * @return maximum scaling factor
+     */
+    double computeMaxScaling(const VectorJ& q_in, const VectorJ& a, const VectorJ& b, int* r);
+    
+    /**
+     * @brief Update the internal values of joint velocity limits, based on position threshold
+     */
+    void updateVelocityLimits(const VectorJ& q_in);
     
 };
 

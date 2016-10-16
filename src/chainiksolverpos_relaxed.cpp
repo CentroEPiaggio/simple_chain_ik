@@ -22,6 +22,7 @@
 #include <simple_chain_ik/solvers/chainiksolverpos_relaxed.hpp>
 
 #include <limits>
+#include <iostream>
 
 using namespace KDL;
 
@@ -58,8 +59,12 @@ int ChainIkSolverPos_relaxed::CartToJnt(const JntArray& q_init, const Frame& p_i
         if(Equal(delta_twist_chk,Twist::Zero(),eps))
             break;
         
-        if ( iksolver.CartToJnt(q_out,delta_twist,delta_q) < 0)
+        std::cout << "BLA1 : try" << std::endl;
+        int err;
+        if ( (err=iksolver.CartToJnt(q_out,delta_twist,delta_q)) < 0)
+            std::cout << "Error #" << err << std::endl;
             return (error = E_IKSOLVERVEL_FAILED);
+        std::cout << "BLA2 : catch" << std::endl;
         
         Add(q_out,delta_q,q_out);
         

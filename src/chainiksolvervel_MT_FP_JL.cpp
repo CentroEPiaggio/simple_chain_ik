@@ -1,6 +1,9 @@
 #include <simple_chain_ik/solvers/chainiksolvervel_MT_FP_JL.hpp>
 #include <iostream>
 #include <limits>
+// #include <eigen3/Eigen/src/Core/Matrix.h>
+// #include <eigen3/Eigen/src/SVD/JacobiSVD.h>
+// #include <eigen3/Eigen/Jacobi>
 
 #include "kdl/utilities/svd_eigen_HH.hpp"
 
@@ -8,7 +11,8 @@
 #define E_SIZE_MISMATCH -4
 #define E_SVD_FAILED -8
 
-#define DEBUG 2
+#define DEBUG 3
+#define CLASS_NAMESPACE "ChainIkSolverVel_MT_FP_JL::"
 
 using namespace KDL;
 
@@ -17,41 +21,42 @@ ChainIkSolverVel_MT_FP_JL::ChainIkSolverVel_MT_FP_JL(const Chain& chain, double 
     eps(eps),
     maxiter(maxiter),
     nj(JS_dim),
+    jac_kdl(nj),
     ts_dim(TS_dim),
     jnt2jac(chain),
-    weightTS(Eigen::Matrix<double,TS_dim,TS_dim>::Identity()),
-    weightJS(Eigen::Matrix<double,JS_dim,JS_dim>::Identity()),
+    weightTS(MatrixT::Identity()),
+    weightW(MatrixJ::Identity()),
+    weightJS(MatrixJ::Identity()),
     lambda(0.0),
-    svdResult(0),
-    q_dot_lb(Eigen::Matrix<double,JS_dim,1>::Ones()*std::numeric_limits<double>::min()),
-    q_dot_ub(Eigen::Matrix<double,JS_dim,1>::Ones()*std::numeric_limits<double>::max()),
+    q_dot_lb(VectorJ::Ones()*std::numeric_limits<double>::min()),
+    q_dot_ub(VectorJ::Ones()*std::numeric_limits<double>::max()),
     is_jac_weighted(false),
-    q_lb(Eigen::Matrix<double,JS_dim,1>::Ones()*std::numeric_limits<double>::min()),
-    q_ub(Eigen::Matrix<double,JS_dim,1>::Ones()*std::numeric_limits<double>::min()), 
-    svdU(Eigen::Matrix<double,TS_dim,TS_dim>::Zero()),
-    svdV(Eigen::Matrix<double,JS_dim,JS_dim>::Zero()),
-    svdS(Eigen::Matrix<double,TS_dim,1>::Zero())
+    q_lb(VectorJ::Ones()*std::numeric_limits<double>::min()),
+    q_ub(VectorJ::Ones()*std::numeric_limits<double>::min()),
+    S_k_old(VectorJ::Zero()),
+    S_k(VectorJ::Zero()),
+    N_k(MatrixJ::Identity()),
+    xi(VectorT::Zero())
 {
     assert(nj == chain.getNrOfJoints());
 }
 
-void ChainIkSolverVel_MT_FP_JL::setJointLimits(const Eigen::ArrayXd& lower_bound, const Eigen::ArrayXd& upper_bound)
+void ChainIkSolverVel_MT_FP_JL::setJointLimits(const VectorJ& lower_bound, const VectorJ& upper_bound)
 {
-    // either asser here or do everything in header file
-    assert(lower_bound.rows() == nj);
-    assert(upper_bound.rows() == nj);
-    
+//     // either asser here or do everything in header file
+//     assert(lower_bound.rows() == nj);
+//     assert(upper_bound.rows() == nj);
     q_lb = lower_bound;
     q_ub = upper_bound;
 }
 
-int ChainIkSolverVel_MT_FP_JL::setWeightJS(const Eigen::MatrixXd& Mq)
+int ChainIkSolverVel_MT_FP_JL::setWeightJS(const MatrixJ& Mq)
 {
-    // either asser here or do everything in header file
-    assert(Mq.rows() == nj);
-    assert(Mq.cols() == nj);
+//     // either asser here or do everything in header file
+//     assert(Mq.rows() == nj);
+//     assert(Mq.cols() == nj);
     
-    if( Mq == Eigen::Matrix<double,JS_dim,JS_dim>::Identity() )
+    if( Mq == MatrixJ::Identity() )
     {
         is_jac_weighted = false;
         return 0;
@@ -62,15 +67,15 @@ int ChainIkSolverVel_MT_FP_JL::setWeightJS(const Eigen::MatrixXd& Mq)
     return 0;
 }
 
-int ChainIkSolverVel_MT_FP_JL::setWeightTS(const Eigen::MatrixXd& weights)
+int ChainIkSolverVel_MT_FP_JL::setWeightTS(const MatrixT& weights)
 {
-    // either asser here or do everything in header file
-    assert(weights.rows() == ts_dim);
-    assert(weights.cols() == ts_dim);
+//     // either asser here or do everything in header file
+//     assert(weights.rows() == ts_dim);
+//     assert(weights.cols() == ts_dim);
     
     double w(1.0),last_w(0.0);
     uint task_nr(0);
-    Eigen::Matrix<double,TS_dim,1> task_list(Eigen::Matrix<double,TS_dim,1>::Zero());
+    task_list_.setZero();
     Eigen::Matrix<double,TS_dim,1> Mx(weights.diagonal());
     
     // find current most-important task weight
@@ -85,7 +90,7 @@ int ChainIkSolverVel_MT_FP_JL::setWeightTS(const Eigen::MatrixXd& weights)
     {
         // task_list will have 1's in 1st task elements, 2's in 2nd task elements...
         task_nr++;
-        task_list = (Mx.array() == w).select(Eigen::Matrix<double,TS_dim,1>::Ones()*task_nr,task_list);
+        task_list_ = (Mx.array() == w).select(VectorTi::Ones()*task_nr,task_list_);
         
         // adjust weights for a new cycle
         Mx = (Mx.array() == w).select(Eigen::Matrix<double,TS_dim,1>::Zero(),Mx);
@@ -95,7 +100,7 @@ int ChainIkSolverVel_MT_FP_JL::setWeightTS(const Eigen::MatrixXd& weights)
         
         // debug output
 #if DEBUG>1
-        std::cout << "task_list = " << task_list.transpose() << std::endl;
+        std::cout << "task_list = " << task_list_.transpose() << std::endl;
         std::cout << "Mx = " << Mx.transpose() << std::endl;
         std::cout << "w = " << w << std::endl;
 #endif
@@ -105,7 +110,6 @@ int ChainIkSolverVel_MT_FP_JL::setWeightTS(const Eigen::MatrixXd& weights)
     std::cout << "task_nr = " << task_nr << std::endl;
     #endif
     task_nr_ = task_nr;
-    task_list_ = task_list;
     return 0;
 }
 
@@ -117,31 +121,19 @@ const char* ChainIkSolverVel_MT_FP_JL::strError(const int error) const
 
 int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in, JntArray& qdot_out)
 {
-    SetToZero(qdot_out);
-    return 0;
-    
     if(nj != q_in.rows() || nj != qdot_out.rows())
         return (error = E_SIZE_MISMATCH);
     error = jnt2jac.JntToJac(q_in,jac_kdl);
     if ( error < E_NOERROR)
+    {
+        std::cout << CLASS_NAMESPACE << __func__ << "@" << __LINE__ << " : error=" << error << std::endl;
         return error;
+    }
     
     // initializations
-    // total solution
-    Eigen::Vector<double,JS_dim,1> S_0(Eigen::Vector<double,JS_dim,1>::Zero());
-    // solution at step k-1
-    Eigen::Vector<double,JS_dim,1> S_k_old(Eigen::Vector<double,JS_dim,1>::Zero());
-    // solution at step k
-    Eigen::Vector<double,JS_dim,1> S_k(Eigen::Vector<double,JS_dim,1>::Zero());
-    // null-space projector at step k
-    Eigen::Matrix<double,JS_dim,JS_dim> N_k(Eigen::Matrix<double,JS_dim,JS_dim>::Identity());
-    // complete task specification
-    Eigen::Matrix<double,TS_dim,1> xi(Eigen::Matrix<double,TS_dim,1>::Zero());
-    
-    //S_0.setZero();
-    //S_k_old.setZero();
-    //S_k.setZero();
-    //N_k.setIdentity();
+    S_k_old.setZero();
+    S_k.setZero();
+    N_k.setIdentity();
     jac = jac_kdl.data;
     for(int i=0; i<TS_dim; ++i)
         xi(i) = v_in(i);
@@ -150,13 +142,13 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
     for(uint k=0; k<task_nr_; ++k)
     {
         // jacobian at k-th step
-        Eigen::MatrixXd J_k;
+        MatrixXJ J_k;
         // task at k-th step
         Eigen::VectorXd xi_k;
         // null-projected jacobian at k-th step
-        Eigen::MatrixXd NJ_k;
+        MatrixXJ NJ_k;
         // pseudo-inverted null-projected jacobian at k-th step
-        Eigen::MatrixXd NJ_k_pinv;
+        MatrixJX NJ_k_pinv;
         
         // get local jacobian (dimension may vary for each task...)
         selectMatrixRows(task_list_,k+1,jac,J_k);
@@ -169,147 +161,92 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
         
         // compute q_dot at this task
         S_k_old = S_k;
-        S_k = NJ_k_pinv*(xi_k - J_k * S_k_old);
+        S_k.noalias() = NJ_k_pinv*(xi_k - J_k * S_k_old);
+        S_k += S_k_old;
         
         // check limits based on q_in
         int worst_joint = -1;
-        worst_joint = checkVelocityLimits(q_in,S_0 + S_k);
+        worst_joint = checkVelocityLimits(q_in.data,S_k);
         
-        // SNS - De Luca : dispense pag. 75+
+        // SNS - De Luca : class notes pag. 75+
+        // initialize variables to perform SNS
+        // weight matrix
+        weightW.setIdentity();
+        // current task scale factor
+        double s = 1.0;
+        // largest scale factor found
+        double sStar = 0.0;
+        // velocity vector to saturate, used in internal loop
+        VectorJ qN = S_k_old;
+        // saturated velocities in the best task scaling scenario
+        VectorJ qNstar;
+        // weight matrix in the best task scaling scenario
+        MatrixJ weightWstar;
+        
         // enforce limits - if failed, don't go on with tasks
-        if(worst_joint >= 0)
+        while(worst_joint >= 0)
         {
-            if(!enforceLimits())
+            // ATTENTION: not sure about this > is it 
+            // a = pinv(J_k*N_k*W)*xi_k OR a = S_k_old + pinv(J_k*N_k*W)*(xi - Jk*S_k_old) ? I will opt for the second, it makes more sense
+            VectorJ a;
+            MatrixJX JNW_k_pinv;
+            pinvDLS(NJ_k * weightW, JNW_k_pinv);
+            a.noalias() = JNW_k_pinv*(xi_k - J_k*S_k_old);
+            a += S_k_old;
+            // compute b - S_k is the variable which gets updated also in the internal cycle
+            VectorJ b = S_k - a; 
+            
+            s = computeMaxScaling(q_in.data,a,b,&worst_joint);
+            if(s > sStar)
             {
-                double s;
-                s = computeMaxScaling();
-                S_0 += NJ_k_pinv*(s*xi_k - J_k * S_k_old);
+                sStar = s;
+                weightWstar = weightW;
+                qNstar = qN;
+            }
+            
+            weightW(worst_joint,worst_joint) = 0.0;
+            // apply in qN the limit resulting from S_k
+            if(S_k(worst_joint) >= q_dot_ub(worst_joint))
+                qN(worst_joint) = q_dot_ub(worst_joint);
+            else if(S_k(worst_joint) <= q_dot_lb(worst_joint))
+                qN(worst_joint) = q_dot_lb(worst_joint);
+            else
+            {
+                std::cout << CLASS_NAMESPACE << __func__ << " : This is really strange: shouldn't happen!" << std::endl;
+                assert(false);
+            }
+            
+            // the task went out of scope of the jacobian (deficient rank): scale it and exit
+            
+            if( (NJ_k * weightW).colPivHouseholderQr().rank() < xi_k.rows() )
+            {
+                pinvDLS(NJ_k * weightWstar, JNW_k_pinv);
+                S_k = qNstar + JNW_k_pinv*(s*xi_k - J_k * qNstar);
+#if DEBUG>1
+                std::cout << CLASS_NAMESPACE << __func__ << " : exiting after enforcing joint limits at task #" << k+1 << " out of " << task_nr_ << std::endl;
+#endif
                 // return some inaccuracy error, but do not fail
+                qdot_out.data = S_k;
                 return E_SNS_NEEDED;
             }
+            
+            // compute an extra step and check again for limits
+            // if I didn't return, this is the same as above >> pinvDLS(NJ_k * weightW, JNW_k_pinv);
+            S_k = qN + JNW_k_pinv*(xi_k - J_k * qN);
+            
+            worst_joint = checkVelocityLimits(q_in.data,S_k);
         }
         
         // if it's not last task, compute iterative step
-        S_0 += S_k;
         N_k -= NJ_k_pinv*NJ_k;
     }
     
     // return q_dot
-    qdot_out.data = S_0;
+    qdot_out.data = S_k;
     return E_NOERROR;
-    
-    ///////////////// OLD SOLVER
-    
-    Eigen::MatrixXd tmp_jac_weight1;
-    Eigen::MatrixXd tmp_jac_weight2;
-    Eigen::MatrixXd tmp_ts;
-    Eigen::MatrixXd tmp_js;
-    double lambda_scaled;
-    unsigned int nrZeroSigmas ;
-    double sigmaMin;
-    Eigen::VectorXd tmp(VectorXd::Zero(nj));
-    
-    if(nj != q_in.rows() || nj != qdot_out.rows())
-        return (error = E_SIZE_MISMATCH);
-    error = jnt2jac.JntToJac(q_in,jac_kdl);
-    if ( error < E_NOERROR) return error;
-    
-    double sum;
-    unsigned int i,j;
-    
-    // Initialize (internal) return values
-    nrZeroSigmas = 0 ;
-    sigmaMin = 0.;
-    lambda_scaled = 0.;
-    
-    /*
-     *        for (i=0;i<jac_kdl.rows();i++) {
-     *            for (j=0;j<jac_kdl.columns();j++)
-     *                tmp_jac(i,j) = jac(i,j);
-}
-*/
-    
-    // Create the Weighted jacobian
-    tmp_jac_weight1.noalias() = jac_kdl.data * weightJS;
-    tmp_jac_weight2.noalias() = weightTS.asDiagonal() * tmp_jac_weight1;
-    
-    // Compute the SVD of the weighted jacobian
-    Eigen::MatrixXd svdU(MatrixXd::Zero(6,nj));
-    Eigen::VectorXd svdS(VectorXd::Zero(nj));
-    Eigen::MatrixXd svdV(MatrixXd::Zero(nj,nj));
-    svdResult = svd_eigen_HH(tmp_jac_weight2,svdU,svdS,svdV,tmp,maxiter);
-    if (0 != svdResult)
-    {
-        qdot_out.data.setZero() ;
-        return (error = E_SVD_FAILED);
-    }
-    
-    //Pre-multiply U and V by the task space and joint space weighting matrix respectively
-    tmp_ts.noalias() = weightTS.asDiagonal() * svdU.topLeftCorner(6,6);
-    tmp_js = weightJS.lazyProduct(svdV);
-    
-    // Minimum of six largest singular values of J is S(5) if number of joints >=6 and 0 for <6
-    if ( jac_kdl.columns() >= 6 ) {
-        sigmaMin = svdS(5);
-    }
-    else {
-        sigmaMin = 0.;
-    }
-    
-    // tmp = (Si*U'*Ly*y),
-    for (i=0;i<jac_kdl.columns();i++) {
-        sum = 0.0;
-        for (j=0;j<jac_kdl.rows();j++) {
-            if(i<6)
-                sum+= tmp_ts(j,i)*v_in(j);
-            else
-                sum+=0.0;
-        }
-        // If sigmaMin > eps, then wdls is not active and lambda_scaled = 0 (default value)
-        // If sigmaMin < eps, then wdls is active and lambda_scaled is scaled from 0 to lambda
-        // Note:  singular values are always positive so sigmaMin >=0
-        if ( sigmaMin < eps )
-        {
-            lambda_scaled = sqrt(1.0-(sigmaMin/eps)*(sigmaMin/eps))*lambda ;
-        }
-        if(fabs(svdS(i))<eps) {
-            if (i<6) {
-                // Scale lambda to size of singular value sigmaMin
-                tmp(i) = sum*((svdS(i)/(svdS(i)*svdS(i)+lambda_scaled*lambda_scaled)));
-            }
-            else {
-                tmp(i)=0.0;  // S(i)=0 for i>=6 due to cols>rows
-            }
-            //  Count number of singular values near zero
-            ++nrZeroSigmas ;
-        }
-        else {
-            tmp(i) = sum/svdS(i);
-        }
-    }
-    
-    /*
-     *        // x = Lx^-1*V*tmp + x
-     *        for (i=0;i<jac_kdl.columns();i++) {
-     *            sum = 0.0;
-     *            for (j=0;j<jac_kdl.columns();j++) {
-     *                sum+=tmp_js(i,j)*tmp(j);
-}
-qdot_out(i)=sum;
-}
-*/
-    qdot_out.data=tmp_js.lazyProduct(tmp);
-    
-    // If number of near zero singular values is greater than the full rank
-    // of jac, then wdls is active
-    if ( nrZeroSigmas > (jac_kdl.columns()-jac_kdl.rows()) )    {
-        return (error = E_CONVERGE_PINV_SINGULAR);  // converged but pinv singular
-    } else {
-        return (error = E_NOERROR);                 // have converged
-    }
 }
 
-int ChainIkSolverVel_MT_FP_JL::pinvDLS(const Matrix< double, -1, 7 >& NJ_k, Matrix< double, 7, -1 >& NJ_k_pinv)
+int ChainIkSolverVel_MT_FP_JL::pinvDLS(const MatrixXJ& NJ_k, MatrixJX& NJ_k_pinv)
 {
     Eigen::MatrixXd weigthedJ;
     if(is_jac_weighted)
@@ -317,16 +254,124 @@ int ChainIkSolverVel_MT_FP_JL::pinvDLS(const Matrix< double, -1, 7 >& NJ_k, Matr
     else
         weigthedJ = NJ_k;
     
-    // Compute the SVD of the weighted jacobian
-    // TODO: understand why this doesn't work properly with regular, non-dynamic matrixes
-    Eigen::MatrixXd svdU(MatrixXd::Zero(6,nj));
-    Eigen::VectorXd svdS(VectorXd::Zero(nj));
-    Eigen::MatrixXd svdV(MatrixXd::Zero(nj,nj));
-    Eigen::VectorXd tmp(VectorXd::Zero(nj));
-    svdResult = svd_eigen_HH(weigthedJ,svdU,svdS,svdV,tmp,maxiter);
-    if (0 != svdResult)
-        return (error = E_SVD_FAILED);
+    int zero_sv_counter = 0;
     
-    // TODO finish computing SVD... or we probably want to compute qdot here?
+    // Compute the SVD of the weighted jacobian
+    JacobiSVD<MatrixXd> svd(weigthedJ, ComputeThinU | ComputeThinV);
+    Eigen::VectorXd sigma = svd.singularValues();
+    
+    double lambda_scaled = 0.0;
+    double sigmaMin = sigma.minCoeff();
+    if ( sigmaMin < eps )
+        lambda_scaled = sqrt(1.0-(sigmaMin/eps)*(sigmaMin/eps))*lambda ;
+    for(int i=0; i<sigma.rows(); ++i)
+    {
+        // Damp the singular value
+        if(fabs(sigma(i))<eps)
+        {
+            ++zero_sv_counter;
+            sigma(i) = (sigma(i)/(sigma(i)*sigma(i)+lambda_scaled*lambda_scaled));
+        }
+        else
+            sigma(i) = 1.0/sigma(i);
+    }
+    
+    // resize the output matrix and compute the Pinv
+    NJ_k_pinv.resize(JS_dim,sigma.rows());
+    NJ_k_pinv.noalias() = svd.matrixV() * sigma.asDiagonal() * svd.matrixU().transpose();
+    
+    return zero_sv_counter;
 }
 
+int ChainIkSolverVel_MT_FP_JL::checkVelocityLimits(const VectorJ& q_in, const VectorJ& q_dot_k)
+{
+    // condition to satisfy:
+    // lb <= q+qd <= ub
+    
+    int ru,cu,rl,cl;
+    double maxu,maxl;
+    maxu = ((q_in + q_dot_k) - q_ub).maxCoeff(&ru,&cu);
+    maxl = (q_lb - (q_in + q_dot_k)).maxCoeff(&rl,&cl);
+    
+    // if either one is positive, return the index of the worst one
+    if ((maxu > 0.0) || (maxl > 0.0))
+        return (maxu >= maxl)?ru:rl;
+    
+    // none is positive, return -1
+    return -1;
+}
+
+double ChainIkSolverVel_MT_FP_JL::computeMaxScaling(const VectorJ& q_in, const VectorJ& a, const VectorJ& b, int* r)
+{
+    updateVelocityLimits(q_in);
+    
+    VectorJ sMin, sMax;
+    // the use of a for cycle is maybe the best thing here...
+    for(int i = 0; i<JS_dim; ++i)
+    {
+        sMin(i) = (q_dot_lb(i) - b(i)) / a(i);
+        sMax(i) = (q_dot_ub(i) - b(i)) / a(i);
+        if(sMin(i) > sMax(i))
+            std::swap(sMin(i),sMax(i));
+    }
+    
+    double smin, smax;
+    int c;
+    smax = sMax.minCoeff(r,&c);
+    smin = sMin.maxCoeff();
+    
+    if((smin > smax) || (smax < 0.0) || (smin > 1.0))
+        return 0.0;
+    else
+        return smax;
+}
+
+void ChainIkSolverVel_MT_FP_JL::updateVelocityLimits(const VectorJ& q_in)
+{
+    // this is not the most generic way of doing this...
+    // would it make sense to consider also velocity and acceleration limits of the real robot?
+    q_dot_lb = q_lb - q_in;
+    q_dot_ub = q_ub - q_in;
+}
+
+void ChainIkSolverVel_MT_FP_JL::selectMatrixRows(const VectorTi& task_list_, uint k, const MatrixTJ& jac, MatrixXJ& jac_k) const
+{
+    VectorTi indexer = (task_list_.array() == k).select(VectorTi::Ones(),VectorTi::Zero());
+    uint task_dim = indexer.sum();
+#if DEBUG > 1
+    std::cout << CLASS_NAMESPACE << __func__ << " : task #" << k << " | indexer = [" << indexer.transpose() << "] | task_dim = " << task_dim << std::endl;
+#endif
+    jac_k.resize(task_dim,JS_dim);
+    
+    for(int i=0; i<TS_dim; ++i)
+    {
+        if(indexer(i))
+            jac_k.row(i) = jac.row(i);
+    }
+    
+#if DEBUG > 2
+    std::cout << "jacobian : " << std::endl << jac << std::endl;
+    std::cout << "jacobian([" << task_list_.transpose() << "] == " << k << ") : " << std::endl << jac_k << std::endl;
+#endif
+}
+
+void ChainIkSolverVel_MT_FP_JL::selectMatrixRows(const VectorTi& task_list_, uint k, const VectorT& xi, VectorX& xi_k) const
+{
+    VectorTi indexer = (task_list_.array() == k).select(VectorTi::Ones(),VectorTi::Zero());
+    uint task_dim = indexer.sum();
+#if DEBUG > 1
+    std::cout << CLASS_NAMESPACE << __func__ << " : task #" << k << " | indexer = [" << indexer.transpose() << "] | task_dim = " << task_dim << std::endl;
+#endif
+    xi_k.resize(task_dim,1);
+    
+    for(int i=0; i<TS_dim; ++i)
+    {
+        if(indexer(i))
+            xi_k(i) = xi(i);
+    }
+    
+#if DEBUG > 2
+    std::cout << "xi = [" << xi.transpose() << "]" << std::endl;
+    std::cout << "xi([" << task_list_.transpose() << "] == " << k << ") : " << xi_k.transpose() << std::endl;
+#endif
+}

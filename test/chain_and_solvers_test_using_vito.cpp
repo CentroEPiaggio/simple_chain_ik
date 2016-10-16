@@ -7,7 +7,7 @@
 #include <kdl/frames_io.hpp>
 
 #define CLASS_NAMESPACE "chain_and_solvers_test::"
-#define DEBUG 2
+#define DEBUG 1
 
 KDL::Frame ee_tip = KDL::Frame(KDL::Vector(0.0,0.0,0.2));
 
@@ -120,7 +120,7 @@ int main(int argc, char** argv)
     if(solver_error < 0)
     {
         ROS_ERROR_STREAM(CLASS_NAMESPACE << " : unable to get first IK! Error " << solver_error << " > " << lh_solver.getIKSolver()->strError(solver_error));
-        return -10;
+// // //         return -10;
     }
     publishConfig(lh_solver.jointNames(),q_out,joint_state_pub);
     computeAndDisplayDifference(target,q_out,lh_solver);
@@ -166,7 +166,7 @@ int main(int argc, char** argv)
     if(solver_error < 0)
     {
         ROS_ERROR_STREAM(CLASS_NAMESPACE << " : unable to get first IK! Error " << solver_error << " > " << lh_solver.getIKSolver()->strError(solver_error));
-        return -10;
+// // //         return -10;
     }
     publishConfig(lh_solver.jointNames(),q_out,joint_state_pub);
     computeAndDisplayDifference(target,q_out,lh_solver);
