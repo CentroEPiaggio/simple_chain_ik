@@ -8,6 +8,8 @@
 
 #define CLASS_NAMESPACE "chain_and_solvers_test::"
 #define DEBUG 1
+#define BLUE "\033[0;34m"
+#define NC "\033[0m"
 
 KDL::Frame ee_tip = KDL::Frame(KDL::Vector(0.0,0.0,0.2));
 
@@ -116,23 +118,25 @@ int main(int argc, char** argv)
     int nj = lh_solver.jointNames().size();
     KDL::JntArray q_out(nj),q_init(nj);
     q_init = lh_solver.getValidRandomJoints();
-    int solver_error = lh_solver.getIKSolver()->CartToJnt(q_init,target,q_out);
+    
+    int solver_error;
+    int counter=0;
+    ros::Duration tsleep(0.1);
+    solver_error = lh_solver.getIKSolver()->CartToJnt(q_init,target,q_out);
     if(solver_error < 0)
     {
         ROS_ERROR_STREAM(CLASS_NAMESPACE << " : unable to get first IK! Error " << solver_error << " > " << lh_solver.getIKSolver()->strError(solver_error));
-// // //         return -10;
+        return -10;
     }
     publishConfig(lh_solver.jointNames(),q_out,joint_state_pub);
     computeAndDisplayDifference(target,q_out,lh_solver);
     
-    ros::Duration tsleep(0.1);
     tsleep.sleep();
     
     // iterate with some frames
-    int counter=0;
     while(target.p.y() < end_y)
     {
-        ROS_INFO_STREAM(CLASS_NAMESPACE << " : computing IK #" << ++counter);
+        ROS_INFO_STREAM(BLUE << CLASS_NAMESPACE << " : computing IK #" << ++counter << NC);
         target.p.y( target.p.y() + 0.025 );
         // use old q_out as new seed
         solver_error = lh_solver.getIKSolver()->CartToJnt(q_out,target,q_out);
@@ -148,15 +152,15 @@ int main(int argc, char** argv)
         tsleep.sleep();
     }
     
-    ROS_INFO_STREAM(CLASS_NAMESPACE << " : trying again adding some more tolerance for rotation...");
+    ROS_INFO_STREAM(BLUE << CLASS_NAMESPACE << " : trying again adding some more tolerance for rotation..." << NC);
     Eigen::Matrix<double,6,1> Mx;
     Mx.setOnes(Mx.RowsAtCompileTime,Mx.ColsAtCompileTime);
-    Mx(1,0) = 0.9;
-    Mx(1,0) = 0.9;
+    Mx(1,0) = 1.0;
+    Mx(1,0) = 1.0;
     Mx(2,0) = 1.0;
-    Mx(3,0) = 0.0; // care less about x-rotation
-    Mx(4,0) = 0.1; // care less about y-rotation
-    Mx(5,0) = 0.5; // care less about z-rotation
+    Mx(3,0) = 0.01; // care less about x-rotation
+    Mx(4,0) = 0.01; // care less about y-rotation
+    Mx(5,0) = 0.1; // care less about z-rotation
     
     target.p.y( init_y );
     
@@ -166,7 +170,7 @@ int main(int argc, char** argv)
     if(solver_error < 0)
     {
         ROS_ERROR_STREAM(CLASS_NAMESPACE << " : unable to get first IK! Error " << solver_error << " > " << lh_solver.getIKSolver()->strError(solver_error));
-// // //         return -10;
+        return -10;
     }
     publishConfig(lh_solver.jointNames(),q_out,joint_state_pub);
     computeAndDisplayDifference(target,q_out,lh_solver);
@@ -177,7 +181,7 @@ int main(int argc, char** argv)
     
     while(target.p.y() < end_y)
     {
-        ROS_INFO_STREAM(CLASS_NAMESPACE << " : computing relaxed IK #" << ++counter);
+        ROS_INFO_STREAM(BLUE << CLASS_NAMESPACE << " : computing relaxed IK #" << ++counter << NC);
         target.p.y( target.p.y() + 0.025 );
         // use old q_out as new seed
         solver_error = lh_solver.getIKSolver()->CartToJnt(q_out,target,q_out);
