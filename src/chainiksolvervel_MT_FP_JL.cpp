@@ -4,6 +4,7 @@
 // #include <eigen3/Eigen/src/Core/Matrix.h>
 // #include <eigen3/Eigen/src/SVD/JacobiSVD.h>
 // #include <eigen3/Eigen/Jacobi>
+#include <ros/ros.h>
 
 #include "kdl/utilities/svd_eigen_HH.hpp"
 
@@ -11,7 +12,7 @@
 #define E_SIZE_MISMATCH -4
 #define E_SVD_FAILED -8
 
-#define DEBUG 3
+#define DEBUG 2
 #define CLASS_NAMESPACE "ChainIkSolverVel_MT_FP_JL::"
 
 #define QDOT_ZERO 0e-6
@@ -140,6 +141,9 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
     for(int i=0; i<TS_dim; ++i)
         xi(i) = v_in(i);
     
+    // count the number of iterations we are using here
+    int counter = 0;
+    
     // for each task
     for(uint k=0; k<task_nr_; ++k)
     {
@@ -220,6 +224,9 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
                 std::cout << CLASS_NAMESPACE << __func__ << " : This is really strange: shouldn't happen!" << std::endl;
                 assert(false);
             }
+            // TODO - remove - debug only
+            std::cout << "worst_joint=" << worst_joint << std::endl;
+            std::cout << "qN = [" << qN.transpose() << "]" << std::endl;
             
             // the task went out of scope of the jacobian (deficient rank): scale it and exit
             
@@ -234,7 +241,12 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
                 qdot_out.data = S_k;
                 return E_SNS_NEEDED;
             }
-            
+            // TODO: remove - debug only
+            else
+            {
+                std::cout << CLASS_NAMESPACE << __func__ << " : NOT YET exiting (cycle #" << counter++ << "), rank=" << (NJ_k * weightW).colPivHouseholderQr().rank() << " | task dimension=" << xi_k.rows() << std::endl;
+            }
+
             // compute an extra step and check again for limits
             pinvDLS(NJ_k * weightW, JNW_k_pinv);
             S_k = qN + JNW_k_pinv*(xi_k - J_k * qN);
@@ -265,6 +277,11 @@ int ChainIkSolverVel_MT_FP_JL::pinvDLS(const MatrixXJ& NJ_k, MatrixJX& NJ_k_pinv
     // Compute the SVD of the weighted jacobian
     JacobiSVD<MatrixXd> svd(weigthedJ, ComputeThinU | ComputeThinV);
     Eigen::VectorXd sigma = svd.singularValues();
+    
+#if DEBUG>2
+    std::cout << CLASS_NAMESPACE << __func__ << std::endl;
+    std::cout << " : sigma = [" << sigma.transpose() << "]" << std::endl;
+#endif
     
     double lambda_scaled = 0.0;
     double sigmaMin = sigma.minCoeff();
@@ -299,6 +316,14 @@ bool ChainIkSolverVel_MT_FP_JL::checkVelocityLimits(const VectorJ& q_in, const V
     maxu = ((q_in + q_dot_k) - q_ub).maxCoeff(&ru,&cu);
     maxl = (q_lb - (q_in + q_dot_k)).maxCoeff(&rl,&cl);
     
+    // TODO: remove after debugging
+    std::cout << CLASS_NAMESPACE << __func__ << std::endl;
+    std::cout << " : q_in=[" << q_in.transpose() << "]" << std::endl;
+    std::cout << " : q_dot_k=[" << q_dot_k.transpose() << "]" << std::endl;
+    std::cout << " : q_lb=[" << q_lb.transpose() << "]" << std::endl;
+    std::cout << " : q_ub=[" << q_ub.transpose() << "]" << std::endl;
+    std::cout << " : maxu=" << maxu << " | maxl=" << maxl << " | ru=" << ru << " | rl=" << rl << std::endl;
+    
     // if either one is positive (greater than a small number treated as zero), return the index of the worst one
     if ((maxu > QDOT_ZERO) || (maxl > QDOT_ZERO))
         return false;
@@ -311,25 +336,51 @@ double ChainIkSolverVel_MT_FP_JL::computeMaxScaling(const VectorJ& q_in, const V
 {
     updateVelocityLimits(q_in);
     
+    // TODO: remove after debugging
+    std::cout << CLASS_NAMESPACE << __func__ << std::endl;
+    std::cout << " : q_in     = [" << q_in.transpose() << "]" << std::endl;
+    std::cout << " : a        = [" << a.transpose() << "]" << std::endl;
+    std::cout << " : b        = [" << b.transpose() << "]" << std::endl;
+    std::cout << " : q_dot_lb = [" << q_dot_lb.transpose() << "]" << std::endl;
+    std::cout << " : q_dot_ub = [" << q_dot_ub.transpose() << "]" << std::endl;
+
     VectorJ sMin, sMax;
     // the use of a for cycle is maybe the best thing here...
     for(int i = 0; i<JS_dim; ++i)
     {
         sMin(i) = (q_dot_lb(i) - b(i)) / a(i);
         sMax(i) = (q_dot_ub(i) - b(i)) / a(i);
+            
+        // TODO: remove debug
+        std::cout << sMin(i) << "\t" << sMax(i);
+        
         if(sMin(i) > sMax(i))
+        {
+            std::cout << "\t>>\tswapping!";
             std::swap(sMin(i),sMax(i));
+        }
+        std::cout << std::endl;
     }
+    std::cout << " : sMin     = [" << sMin.transpose() << "]" << std::endl;
+    std::cout << " : sMax     = [" << sMax.transpose() << "]" << std::endl;
     
     double smin, smax;
     int c;
     smax = sMax.minCoeff(r,&c);
     smin = sMin.maxCoeff();
     
+    std::cout << " : worst_joint=" << *r << std::endl;
+    
     if((smin > smax) || (smax < 0.0) || (smin > 1.0))
+    {
+        std::cout << " : returning 0" << std::endl;
         return 0.0;
+    }
     else
+    {
+        std::cout << " : returning smax=" << smax << std::endl;
         return smax;
+    }
 }
 
 void ChainIkSolverVel_MT_FP_JL::updateVelocityLimits(const VectorJ& q_in)
