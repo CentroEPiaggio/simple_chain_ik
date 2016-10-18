@@ -215,9 +215,9 @@ private:
     /**
      * @brief Check joint limits based on the newly received joint position and the currently computed velocities
      * 
-     * @return -1 if all joints are inside the limits, otherwise the index of the "worst" joint (further apart from the limits)
+     * @return true if all joints are inside the limits, false otherwise
      */
-    int checkVelocityLimits(const VectorJ& q_in, const VectorJ& q_dot_k);
+    bool checkVelocityLimits(const KDL::VectorJ& q_in, const KDL::VectorJ& q_dot_k);
     
     /**
      * @brief Compute pseudo-inverse with damped-least-square

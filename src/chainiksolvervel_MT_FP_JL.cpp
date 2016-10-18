@@ -14,6 +14,8 @@
 #define DEBUG 3
 #define CLASS_NAMESPACE "ChainIkSolverVel_MT_FP_JL::"
 
+#define QDOT_ZERO 0e-6
+
 using namespace KDL;
 
 ChainIkSolverVel_MT_FP_JL::ChainIkSolverVel_MT_FP_JL(const Chain& chain, double eps, int maxiter) : 
@@ -144,7 +146,7 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
         // jacobian at k-th step
         MatrixXJ J_k;
         // task at k-th step
-        Eigen::VectorXd xi_k;
+        VectorX xi_k;
         // null-projected jacobian at k-th step
         MatrixXJ NJ_k;
         // pseudo-inverted null-projected jacobian at k-th step
@@ -165,10 +167,10 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
         S_k += S_k_old;
         
         // check limits based on q_in
-        int worst_joint = -1;
-        worst_joint = checkVelocityLimits(q_in.data,S_k);
+        bool respecting_limits = false;
+        respecting_limits = checkVelocityLimits(q_in.data,S_k);
         
-        // SNS - De Luca : class notes pag. 75+
+        // Saturation in the Null-Space (SNS) - De Luca : class notes pag. 75+
         // initialize variables to perform SNS
         // weight matrix
         weightW.setIdentity();
@@ -182,14 +184,15 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
         VectorJ qNstar;
         // weight matrix in the best task scaling scenario
         MatrixJ weightWstar;
+        // pseudo-inverse of jacobian projected in the null-space with saturations (initially equal to non-saturated pseudo-inverse)
+        MatrixJX JNW_k_pinv = NJ_k_pinv;
         
         // enforce limits - if failed, don't go on with tasks
-        while(worst_joint >= 0)
+        while(!respecting_limits)
         {
             // ATTENTION: not sure about this > is it 
             // a = pinv(J_k*N_k*W)*xi_k OR a = S_k_old + pinv(J_k*N_k*W)*(xi - Jk*S_k_old) ? I will opt for the second, it makes more sense
             VectorJ a;
-            MatrixJX JNW_k_pinv;
             pinvDLS(NJ_k * weightW, JNW_k_pinv);
             a.noalias() = JNW_k_pinv*(xi_k - J_k*S_k_old);
             a += S_k_old;
@@ -234,7 +237,7 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
             // if I didn't return, this is the same as above >> pinvDLS(NJ_k * weightW, JNW_k_pinv);
             S_k = qN + JNW_k_pinv*(xi_k - J_k * qN);
             
-            worst_joint = checkVelocityLimits(q_in.data,S_k);
+            respecting_limits = checkVelocityLimits(q_in.data,S_k);
         }
         
         // if it's not last task, compute iterative step
@@ -283,7 +286,7 @@ int ChainIkSolverVel_MT_FP_JL::pinvDLS(const MatrixXJ& NJ_k, MatrixJX& NJ_k_pinv
     return zero_sv_counter;
 }
 
-int ChainIkSolverVel_MT_FP_JL::checkVelocityLimits(const VectorJ& q_in, const VectorJ& q_dot_k)
+bool ChainIkSolverVel_MT_FP_JL::checkVelocityLimits(const VectorJ& q_in, const VectorJ& q_dot_k)
 {
     // condition to satisfy:
     // lb <= q+qd <= ub
@@ -293,12 +296,12 @@ int ChainIkSolverVel_MT_FP_JL::checkVelocityLimits(const VectorJ& q_in, const Ve
     maxu = ((q_in + q_dot_k) - q_ub).maxCoeff(&ru,&cu);
     maxl = (q_lb - (q_in + q_dot_k)).maxCoeff(&rl,&cl);
     
-    // if either one is positive, return the index of the worst one
-    if ((maxu > 0.0) || (maxl > 0.0))
-        return (maxu >= maxl)?ru:rl;
+    // if either one is positive (greater than a small number treated as zero), return the index of the worst one
+    if ((maxu > QDOT_ZERO) || (maxl > QDOT_ZERO))
+        return false;
     
     // none is positive, return -1
-    return -1;
+    return true;
 }
 
 double ChainIkSolverVel_MT_FP_JL::computeMaxScaling(const VectorJ& q_in, const VectorJ& a, const VectorJ& b, int* r)
