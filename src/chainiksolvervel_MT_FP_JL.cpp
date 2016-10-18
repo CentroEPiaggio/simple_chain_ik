@@ -348,8 +348,24 @@ double ChainIkSolverVel_MT_FP_JL::computeMaxScaling(const VectorJ& q_in, const V
     // the use of a for cycle is maybe the best thing here...
     for(int i = 0; i<JS_dim; ++i)
     {
-        sMin(i) = (q_dot_lb(i) - b(i)) / a(i);
-        sMax(i) = (q_dot_ub(i) - b(i)) / a(i);
+//         if(fabs(a(i)) < QDOT_ZERO)
+        if(weightW.diagonal()(i) == 0.0)
+        {
+            sMin(i) = -1.0*std::numeric_limits<double>::max();
+            sMax(i) = std::numeric_limits<double>::max();
+        }
+        else
+        {
+            if (q_dot_lb(i) - b(i) > 0.0)
+                sMin(i) = (q_dot_lb(i) - b(i)) / a(i);
+            else
+                sMin(i) = -1.0*std::numeric_limits<double>::max();
+        
+            if (q_dot_ub(i) - b(i) < 0.0)
+                sMax(i) = (q_dot_ub(i) - b(i)) / a(i);
+            else
+                sMax(i) = std::numeric_limits<double>::max();
+        }
             
         // TODO: remove debug
         std::cout << sMin(i) << "\t" << sMax(i);
