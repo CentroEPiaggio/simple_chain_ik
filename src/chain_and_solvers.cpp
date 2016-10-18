@@ -178,6 +178,7 @@ bool ChainAndSolvers::initSolvers()
     ikvelsolver.reset(new ChainAndSolversTypes::ChainIkSolverVel(chain,vel_IK_eps,vel_IK_max_iter));
     ikvelsolver->setLambda(vel_IK_lambda);
     ikvelsolver->setWeightTS(Mx);
+    ikvelsolver->setJointLimits(q_min.data,q_max.data);
     iksolver.reset(new ChainAndSolversTypes::ChainIkSolverPos(chain,q_min,q_max,*fksolver,*ikvelsolver,pos_IK_max_iter,pos_IK_eps));
 #if USING_CUSTOM_SOLVERS>0
     iksolver->setTaskWeight(Wx);

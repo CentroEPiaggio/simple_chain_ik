@@ -30,11 +30,11 @@ ChainIkSolverVel_MT_FP_JL::ChainIkSolverVel_MT_FP_JL(const Chain& chain, double 
     weightW(MatrixJ::Identity()),
     weightJS(MatrixJ::Identity()),
     lambda(0.0),
-    q_dot_lb(VectorJ::Ones()*std::numeric_limits<double>::min()),
+    q_dot_lb(VectorJ::Ones()*(-1.0*std::numeric_limits<double>::max())),
     q_dot_ub(VectorJ::Ones()*std::numeric_limits<double>::max()),
     is_jac_weighted(false),
-    q_lb(VectorJ::Ones()*std::numeric_limits<double>::min()),
-    q_ub(VectorJ::Ones()*std::numeric_limits<double>::min()),
+    q_lb(VectorJ::Ones()*(-1.0*std::numeric_limits<double>::max())),
+    q_ub(VectorJ::Ones()*std::numeric_limits<double>::max()),
     S_k_old(VectorJ::Zero()),
     S_k(VectorJ::Zero()),
     N_k(MatrixJ::Identity()),
@@ -110,7 +110,7 @@ int ChainIkSolverVel_MT_FP_JL::setWeightTS(const MatrixT& weights)
     
 #if DEBUG>1
     std::cout << "task_nr = " << task_nr << std::endl;
-    #endif
+#endif
     task_nr_ = task_nr;
     return 0;
 }
@@ -158,6 +158,7 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
         selectMatrixRows(task_list_,k+1,xi,xi_k);
         
         // comupute null-projected jacobian and its Pseudo-Inverse
+        NJ_k.resize(J_k.rows(),NJ_k.ColsAtCompileTime);
         NJ_k.noalias() = J_k * N_k;
         pinvDLS(NJ_k,NJ_k_pinv);
         
@@ -251,7 +252,8 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
 
 int ChainIkSolverVel_MT_FP_JL::pinvDLS(const MatrixXJ& NJ_k, MatrixJX& NJ_k_pinv)
 {
-    Eigen::MatrixXd weigthedJ;
+    MatrixXJ weigthedJ;
+    weigthedJ.resize(NJ_k.rows(),weigthedJ.ColsAtCompileTime);
     if(is_jac_weighted)
         weigthedJ.noalias() = NJ_k * weightJS;
     else
@@ -341,18 +343,19 @@ void ChainIkSolverVel_MT_FP_JL::selectMatrixRows(const VectorTi& task_list_, uin
 {
     VectorTi indexer = (task_list_.array() == k).select(VectorTi::Ones(),VectorTi::Zero());
     uint task_dim = indexer.sum();
-#if DEBUG > 1
+#if DEBUG > 3
     std::cout << CLASS_NAMESPACE << __func__ << " : task #" << k << " | indexer = [" << indexer.transpose() << "] | task_dim = " << task_dim << std::endl;
 #endif
     jac_k.resize(task_dim,JS_dim);
+    uint jac_row = 0;
     
     for(int i=0; i<TS_dim; ++i)
     {
         if(indexer(i))
-            jac_k.row(i) = jac.row(i);
+            jac_k.row(jac_row++) = jac.row(i);
     }
     
-#if DEBUG > 2
+#if DEBUG > 3
     std::cout << "jacobian : " << std::endl << jac << std::endl;
     std::cout << "jacobian([" << task_list_.transpose() << "] == " << k << ") : " << std::endl << jac_k << std::endl;
 #endif
@@ -362,18 +365,19 @@ void ChainIkSolverVel_MT_FP_JL::selectMatrixRows(const VectorTi& task_list_, uin
 {
     VectorTi indexer = (task_list_.array() == k).select(VectorTi::Ones(),VectorTi::Zero());
     uint task_dim = indexer.sum();
-#if DEBUG > 1
+#if DEBUG > 2
     std::cout << CLASS_NAMESPACE << __func__ << " : task #" << k << " | indexer = [" << indexer.transpose() << "] | task_dim = " << task_dim << std::endl;
 #endif
     xi_k.resize(task_dim,1);
+    uint xi_row = 0;
     
     for(int i=0; i<TS_dim; ++i)
     {
         if(indexer(i))
-            xi_k(i) = xi(i);
+            xi_k(xi_row++) = xi(i);
     }
     
-#if DEBUG > 2
+#if DEBUG > 3
     std::cout << "xi = [" << xi.transpose() << "]" << std::endl;
     std::cout << "xi([" << task_list_.transpose() << "] == " << k << ") : " << xi_k.transpose() << std::endl;
 #endif
