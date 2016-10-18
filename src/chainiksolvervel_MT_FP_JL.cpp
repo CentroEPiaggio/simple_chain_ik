@@ -191,15 +191,16 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
         // enforce limits - if failed, don't go on with tasks
         while(!respecting_limits)
         {
-            // ATTENTION: not sure about this > is it 
-            // a = pinv(J_k*N_k*W)*xi_k OR a = S_k_old + pinv(J_k*N_k*W)*(xi - Jk*S_k_old) ? I will opt for the second, it makes more sense
-            VectorJ a;
             pinvDLS(NJ_k * weightW, JNW_k_pinv);
             a.noalias() = JNW_k_pinv*(xi_k - J_k*S_k_old);
             a += S_k_old;
             // compute b - S_k is the variable which gets updated also in the internal cycle
+            VectorJ a;
+            a.noalias() = JNW_k_pinv*xi_k;
+            // compute b -- S_k is the variable which gets updated also in the internal cycle
             VectorJ b = S_k - a; 
             
+            int worst_joint = -1;
             s = computeMaxScaling(q_in.data,a,b,&worst_joint);
             if(s > sStar)
             {
@@ -225,9 +226,9 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
             if( (NJ_k * weightW).colPivHouseholderQr().rank() < xi_k.rows() )
             {
                 pinvDLS(NJ_k * weightWstar, JNW_k_pinv);
-                S_k = qNstar + JNW_k_pinv*(s*xi_k - J_k * qNstar);
+                S_k = qNstar + JNW_k_pinv*(sStar*xi_k - J_k * qNstar);
 #if DEBUG>1
-                std::cout << CLASS_NAMESPACE << __func__ << " : exiting after enforcing joint limits at task #" << k+1 << " out of " << task_nr_ << std::endl;
+                ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : exiting after enforcing joint limits at task #" << k+1 << " out of " << task_nr_ << " after performing " << 100*sStar << "% of last task");
 #endif
                 // return some inaccuracy error, but do not fail
                 qdot_out.data = S_k;
@@ -235,7 +236,7 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
             }
             
             // compute an extra step and check again for limits
-            // if I didn't return, this is the same as above >> pinvDLS(NJ_k * weightW, JNW_k_pinv);
+            pinvDLS(NJ_k * weightW, JNW_k_pinv);
             S_k = qN + JNW_k_pinv*(xi_k - J_k * qN);
             
             respecting_limits = checkVelocityLimits(q_in.data,S_k);
