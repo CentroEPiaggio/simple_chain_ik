@@ -169,12 +169,9 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
         
         // compute q_dot at this task
         S_k_old = S_k;
-        S_k.noalias() = NJ_k_pinv*(xi_k - J_k * S_k_old);
-        S_k += S_k_old;
-        
-        // check limits based on q_in
-        bool respecting_limits = false;
-        respecting_limits = checkVelocityLimits(q_in.data,S_k);
+        S_k = S_k_old + NJ_k_pinv*(xi_k - J_k * S_k_old);
+        // S_k.noalias() = NJ_k_pinv*(xi_k - J_k * S_k_old);
+        // S_k += S_k_old;
         
         // Saturation in the Null-Space (SNS) - De Luca : class notes pag. 75+
         // initialize variables to perform SNS
@@ -192,6 +189,10 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
         MatrixJ weightWstar;
         // pseudo-inverse of jacobian projected in the null-space with saturations (initially equal to non-saturated pseudo-inverse)
         MatrixJX JNW_k_pinv = NJ_k_pinv;
+        
+        // check limits based on q_in
+        bool respecting_limits = false;
+        respecting_limits = checkVelocityLimits(q_in.data,S_k);
         
         // enforce limits - if failed, don't go on with tasks
         while(!respecting_limits)
@@ -217,7 +218,7 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
 #endif
             
             VectorJ a;
-            a.noalias() = JNW_k_pinv*xi_k;
+            a.noalias() = weightW*JNW_k_pinv*xi_k;
             // compute b -- S_k is the variable which gets updated also in the internal cycle
             VectorJ b = S_k - a; 
             
@@ -266,7 +267,8 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
 
             // compute an extra step and check again for limits
             pinvDLS(NJ_k * weightW, JNW_k_pinv);
-            S_k = qN + JNW_k_pinv*(xi_k - J_k * qN);
+            // ensure delta_q_dot is zero where it should be
+            S_k = qN + weightW*JNW_k_pinv*(xi_k - J_k * qN);
             
             respecting_limits = checkVelocityLimits(q_in.data,S_k);
         }
@@ -341,6 +343,14 @@ bool ChainIkSolverVel_MT_FP_JL::checkVelocityLimits(const VectorJ& q_in, const V
     std::cout << " : q_ub=[" << q_ub.transpose() << "]" << std::endl;
     std::cout << " : maxu=" << maxu << " | maxl=" << maxl << " | ru=" << ru << " | rl=" << rl << std::endl;
     
+    to_be_checked_for_limits_.setZero();
+    for(int i=0; i<JS_dim; ++i)
+    {
+        if(((q_in(i) + q_dot_k(i)) - q_ub(i) > QDOT_ZERO) || (q_lb(i) - (q_in(i) + q_dot_k(i)) > QDOT_ZERO))
+            to_be_checked_for_limits_(i) = 1.0;
+    }
+    std::cout << ": to_be_checked_for_limits_=[" << to_be_checked_for_limits_.transpose() << "]" << std::endl;
+    
     // if either one is positive (greater than a small number treated as zero), return the index of the worst one
     if ((maxu > QDOT_ZERO) || (maxl > QDOT_ZERO))
         return false;
@@ -365,24 +375,35 @@ double ChainIkSolverVel_MT_FP_JL::computeMaxScaling(const VectorJ& q_in, const V
     // the use of a for cycle is maybe the best thing here...
     for(int i = 0; i<JS_dim; ++i)
     {
-//         if(fabs(a(i)) < QDOT_ZERO)
-        if(weightW.diagonal()(i) == 0.0)
+        if(weightW.diagonal()(i) == 0.0 || to_be_checked_for_limits_(i) == 0.0)
         {
             sMin(i) = -1.0*std::numeric_limits<double>::max();
             sMax(i) = std::numeric_limits<double>::max();
         }
         else
         {
-            if (q_dot_lb(i) - b(i) > 0.0)
-                sMin(i) = (q_dot_lb(i) - b(i)) / a(i);
-            else
-                sMin(i) = -1.0*std::numeric_limits<double>::max();
-        
-            if (q_dot_ub(i) - b(i) < 0.0)
-                sMax(i) = (q_dot_ub(i) - b(i)) / a(i);
-            else
-                sMax(i) = std::numeric_limits<double>::max();
+            sMin(i) = (q_dot_lb(i) - b(i)) / a(i);
+            sMax(i) = (q_dot_ub(i) - b(i)) / a(i);
         }
+        
+// //         if(fabs(a(i)) < QDOT_ZERO)
+//         if(weightW.diagonal()(i) == 0.0)
+//         {
+//             sMin(i) = -1.0*std::numeric_limits<double>::max();
+//             sMax(i) = std::numeric_limits<double>::max();
+//         }
+//         else
+//         {
+//             if (q_dot_lb(i) - b(i) > 0.0)
+//                 sMin(i) = (q_dot_lb(i) - b(i)) / a(i);
+//             else
+//                 sMin(i) = -1.0*std::numeric_limits<double>::max();
+//         
+//             if (q_dot_ub(i) - b(i) < 0.0)
+//                 sMax(i) = (q_dot_ub(i) - b(i)) / a(i);
+//             else
+//                 sMax(i) = std::numeric_limits<double>::max();
+//         }
             
         // TODO: remove debug
         std::cout << sMin(i) << "\t" << sMax(i);
@@ -403,6 +424,7 @@ double ChainIkSolverVel_MT_FP_JL::computeMaxScaling(const VectorJ& q_in, const V
     smin = sMin.maxCoeff();
     
     std::cout << " : worst_joint=" << *r << std::endl;
+    assert(to_be_checked_for_limits_(*r) != 0.0);
     
     if((smin > smax) || (smax < 0.0) || (smin > 1.0))
     {

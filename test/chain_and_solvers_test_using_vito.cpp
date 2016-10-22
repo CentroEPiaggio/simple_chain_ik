@@ -34,7 +34,7 @@ void initialize_solvers(ChainAndSolvers& container, const urdf::Model& urdf_mode
         j++;
     }
     
-    if(!container.setSolverParameters(q_min,q_max,100,5e-4,150,1e-5,1e-5) || !container.initSolvers())
+    if(!container.setSolverParameters(q_min,q_max,10,5e-4,150,1e-5,1e-5) || !container.initSolvers())
     {
         std::cout << CLASS_NAMESPACE << __func__ << " : unable to initialize the solvers! Returning..." << std::endl;
         abort();
@@ -155,12 +155,12 @@ int main(int argc, char** argv)
     ROS_INFO_STREAM(BLUE << CLASS_NAMESPACE << " : trying again adding some more tolerance for rotation..." << NC);
     Eigen::Matrix<double,6,1> Mx;
     Mx.setOnes(Mx.RowsAtCompileTime,Mx.ColsAtCompileTime);
-    Mx(1,0) = 1.0;
+    Mx(0,0) = 1.0;
     Mx(1,0) = 1.0;
     Mx(2,0) = 1.0;
-    Mx(3,0) = 0.01; // care less about x-rotation
-    Mx(4,0) = 0.01; // care less about y-rotation
-    Mx(5,0) = 0.1; // care less about z-rotation
+    Mx(3,0) = 1e-10*0.01; // care less about x-rotation
+    Mx(4,0) = 1e-10*0.01; // care less about y-rotation
+    Mx(5,0) = 1e-4; // care less about z-rotation
     
     target.p.y( init_y );
     

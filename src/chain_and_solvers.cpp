@@ -6,6 +6,7 @@
 
 #define CLASS_NAMESPACE "ChainAndSolvers::"
 #define DEBUG 0
+#define DEBUG_STRING {std::cout << CLASS_NAMESPACE << __func__ << "@" << __LINE__ << std::endl;}
 #define USING_CUSTOM_SOLVERS 1
 
 ChainAndSolvers::ChainAndSolvers(const std::shared_ptr< KDL::Tree >& tree_, const std::shared_ptr< KDL::TreeFkSolverPos >& tree_fk_, const std::string& chain_root_, const std::string& chain_tip_, const KDL::Vector& tree_root_gravity_) : tree(tree_), tree_fk(tree_fk_), chain_root(chain_root_), chain_tip(chain_tip_), tree_root_gravity(tree_root_gravity_)

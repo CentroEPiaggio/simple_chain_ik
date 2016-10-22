@@ -23,6 +23,8 @@
 
 #include <limits>
 #include <iostream>
+#include <kdl/frames_io.hpp>
+#include <math.h>
 
 using namespace KDL;
 
@@ -56,15 +58,30 @@ int ChainIkSolverPos_relaxed::CartToJnt(const JntArray& q_init, const Frame& p_i
         delta_twist_chk = delta_twist;
         for(int j=0; j<6; ++j)
             delta_twist_chk[j] *= W(j);
+        
+        std::cout << "delta_twist = " << delta_twist << std::cout;
+        std::cout << "delta_twist_chk = " << delta_twist_chk << std::cout;
+        
         if(Equal(delta_twist_chk,Twist::Zero(),eps))
             break;
         
-        std::cout << "BLA1 : try" << std::endl;
         int err;
+        KDL::SetToZero(delta_q);
         if ( (err=iksolver.CartToJnt(q_out,delta_twist,delta_q)) < 0)
+        {
             std::cout << "Error #" << err << std::endl;
             return (error = E_IKSOLVERVEL_FAILED);
-        std::cout << "BLA2 : catch" << std::endl;
+        }
+        JntArray tmp();
+        std::cout << "IKpos Solver delta_q = [" << delta_q.data.transpose() << "]" << std::endl;
+//         assert(!delta_q.data.isNaN());
+        for(int i=0; i<delta_q.rows(); ++i)
+            assert(!std::isnan(delta_q.data(i)));
+        if(Equal(delta_q,JntArray(7),1e-15))
+        {
+            std::cout << __func__ << " : exiting in cycle #" << i << " (out of " << maxiter << ") because |q_dot|<1e-15 - error on pose = " << delta_twist << std::endl;
+            return (error = E_NO_CONVERGE);
+        }
         
         Add(q_out,delta_q,q_out);
         

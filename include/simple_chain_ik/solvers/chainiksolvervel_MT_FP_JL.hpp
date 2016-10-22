@@ -192,6 +192,8 @@ private:
     uint task_nr_;
     /// list of indexes of tasks to perform
     VectorTi task_list_;
+    /// list of joints which are out of limits
+    VectorJ to_be_checked_for_limits_;
     
     // joint limits
     /// joint lower bounds
