@@ -3,7 +3,7 @@
     <arg name="test" default="false" />
 
     <!-- send the robot XML to param server -->
-    <param name="robot_description" command="$(find xacro)/xacro.py $(find vito_description)/robot/vito.urdf.xacro use_mimic_tag:=true"/>
+    <param name="robot_description" command="$(find xacro)/xacro --inorder $(find vito_description)/robot/vito.urdf.xacro use_mimic_tag:=true"/>
 
     <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" >
         <param name="use_gui" value="$(arg gui)"/>
