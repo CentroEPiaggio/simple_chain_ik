@@ -158,9 +158,9 @@ int main(int argc, char** argv)
     Mx(0,0) = 1.0;
     Mx(1,0) = 1.0;
     Mx(2,0) = 1.0;
-    Mx(3,0) = 1e-10*0.01; // care less about x-rotation
-    Mx(4,0) = 1e-10*0.01; // care less about y-rotation
-    Mx(5,0) = 1e-4; // care less about z-rotation
+    Mx(3,0) = 0.01; // care less about x-rotation
+    Mx(4,0) = 0.01; // care less about y-rotation
+    Mx(5,0) = 0.1; // care less about z-rotation
     
     target.p.y( init_y );
     
@@ -179,6 +179,7 @@ int main(int argc, char** argv)
     if(!lh_solver.changeIkTaskWeigth(Mx))
         ROS_WARN_STREAM(CLASS_NAMESPACE << " : could not change TS weight as the matrix is not positive (semi-)definite!");
     
+    int changed_limits = 0;
     while(target.p.y() < end_y)
     {
         ROS_INFO_STREAM(BLUE << CLASS_NAMESPACE << " : computing relaxed IK #" << ++counter << NC);
@@ -189,7 +190,13 @@ int main(int argc, char** argv)
         {
             ROS_ERROR_STREAM(CLASS_NAMESPACE << " : unable to get IK! Error " << solver_error << " > " << lh_solver.getIKSolver()->strError(solver_error));
             ROS_WARN_STREAM(CLASS_NAMESPACE << " : was able to move until y=" << target.p.y());
-            break;
+            if(changed_limits++ > 0 || solver_error != KDL::ChainIkSolverPos_relaxed::E_MAX_ITERATIONS_EXCEEDED)
+                break;
+            
+            Mx(3,0) = 1e-10*0.01; // care less about x-rotation
+            Mx(4,0) = 1e-10*0.01; // care less about y-rotation
+            lh_solver.changeIkTaskWeigth(Mx);
+            continue;
         }
         publishConfig(lh_solver.jointNames(),q_out,joint_state_pub);
         computeAndDisplayDifference(target,q_out,lh_solver);
