@@ -185,9 +185,9 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
         // velocity vector to saturate, used in internal loop
         VectorJ qN = S_k_old;
         // saturated velocities in the best task scaling scenario
-        VectorJ qNstar;
+        VectorJ qNstar = qN;
         // weight matrix in the best task scaling scenario
-        MatrixJ weightWstar;
+        MatrixJ weightWstar = weightW;
         // pseudo-inverse of jacobian projected in the null-space with saturations (initially equal to non-saturated pseudo-inverse)
         MatrixJX JNW_k_pinv = NJ_k_pinv;
         
