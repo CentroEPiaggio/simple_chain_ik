@@ -60,7 +60,9 @@ int ChainIkSolverPos_relaxed::CartToJnt(const JntArray& q_init, const Frame& p_i
             delta_twist_chk[j] *= W(j);
         
         std::cout << "delta_twist = " << delta_twist << std::endl;
+        std::cout << "|delta_twist| = " << sqrt(delta_twist.rot.Norm()*delta_twist.rot.Norm() + delta_twist.vel.Norm()*delta_twist.vel.Norm()) << std::endl;
         std::cout << "delta_twist_chk = " << delta_twist_chk << std::endl;
+        std::cout << "|delta_twist_chk| = " << sqrt(delta_twist_chk.rot.Norm()*delta_twist_chk.rot.Norm() + delta_twist_chk.vel.Norm()*delta_twist_chk.vel.Norm()) << std::endl;
         
         if(Equal(delta_twist_chk,Twist::Zero(),eps))
             break;
