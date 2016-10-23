@@ -231,20 +231,24 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
                 weightWstar = weightW;
                 qNstar = qN;
             }
+            // TODO - remove - debug only
+            std::cout << "worst_joint=" << worst_joint << std::endl;
             
             weightW(worst_joint,worst_joint) = 0.0;
-            // apply in qN the limit resulting from S_k
+            // apply in qN the limit resulting from S_k (and a contribution from a if S_k was not out of limits!)
             if(S_k(worst_joint) >= q_dot_ub(worst_joint))
                 qN(worst_joint) = q_dot_ub(worst_joint);
             else if(S_k(worst_joint) <= q_dot_lb(worst_joint))
                 qN(worst_joint) = q_dot_lb(worst_joint);
+            // NOTE: cases in which S_k is inside the limits, but just because a is keeping me there
+            else if(a(worst_joint) < 0.0)
+                qN(worst_joint) = q_dot_lb(worst_joint);
+            else if(a(worst_joint) > 0.0)
+                qN(worst_joint) = q_dot_ub(worst_joint);
             else
-            {
-                std::cout << CLASS_NAMESPACE << __func__ << " : This is really strange: shouldn't happen!" << std::endl;
-                assert(false);
-            }
+                assert(false && "S_k inside limits and a(worst_joint) = 0.0 should not be a problem!");
+
             // TODO - remove - debug only
-            std::cout << "worst_joint=" << worst_joint << std::endl;
             std::cout << "qN = [" << qN.transpose() << "]" << std::endl;
             
             // the task went out of scope of the jacobian (deficient rank): scale it and exit
