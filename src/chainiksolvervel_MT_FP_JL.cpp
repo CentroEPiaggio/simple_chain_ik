@@ -376,8 +376,10 @@ double ChainIkSolverVel_MT_FP_JL::computeMaxScaling(const VectorJ& a, const Vect
     // the use of a for cycle is maybe the best thing here...
     for(int i = 0; i<JS_dim; ++i)
     {
-        if(weightW.diagonal()(i) == 0.0 || to_be_checked_for_limits_(i) == 0.0)
+        // if(weightW.diagonal()(i) == 0.0 || to_be_checked_for_limits_(i) == 0.0)
+        if(weightW.diagonal()(i) == 0.0)
         {
+            assert(b(i) <= q_dot_ub(i) && b(i) >= q_dot_lb(i));
             sMin(i) = -1.0*std::numeric_limits<double>::max();
             sMax(i) = std::numeric_limits<double>::max();
         }
@@ -420,20 +422,26 @@ double ChainIkSolverVel_MT_FP_JL::computeMaxScaling(const VectorJ& a, const Vect
     std::cout << " : sMax     = [" << sMax.transpose() << "]" << std::endl;
     
     double smin, smax;
-    int c;
+    int c,r2,c2;
     smax = sMax.minCoeff(r,&c);
-    smin = sMin.maxCoeff();
+    smin = sMin.maxCoeff(&r2,&c2);
     
     std::cout << " : worst_joint=" << *r << std::endl;
-    assert(to_be_checked_for_limits_(*r) != 0.0);
+//     assert(to_be_checked_for_limits_(*r) != 0.0);
     
     if((smin > smax) || (smax < 0.0) || (smin > 1.0))
     {
         std::cout << " : returning 0" << std::endl;
+        if(smax >= 0.0)
+        {
+            *r = r2;
+            std::cout << " : ... recomputing worst_joint=" << *r << std::endl;
+        }
         return 0.0;
     }
     else
     {
+        assert(to_be_checked_for_limits_(*r) != 0.0);
         std::cout << " : returning smax=" << smax << std::endl;
         return smax;
     }
