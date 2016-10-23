@@ -231,14 +231,13 @@ private:
     /**
      * @brief Compute maximum scaling parameter, given limits and currently computed solution
      * 
-     * @param q_in current robot position
      * @param a velocity contribution of the current task, with limited joints
      * @param b difference between total task velocity and @p a
      * @param r index of the most critical joint, which makes sense only if the return is non-zero
      * 
      * @return maximum scaling factor
      */
-    double computeMaxScaling(const VectorJ& q_in, const VectorJ& a, const VectorJ& b, int* r);
+    double computeMaxScaling(const VectorJ& a, const VectorJ& b, int* r);
     
     /**
      * @brief Update the internal values of joint velocity limits, based on position threshold

@@ -141,6 +141,7 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
     jac = jac_kdl.data;
     for(int i=0; i<TS_dim; ++i)
         xi(i) = v_in(i);
+    updateVelocityLimits(q_in.data);
     
     // count the number of iterations we are using here
     int counter = 0;
@@ -223,7 +224,7 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
             VectorJ b = S_k - a; 
             
             int worst_joint = -1;
-            s = computeMaxScaling(q_in.data,a,b,&worst_joint);
+            s = computeMaxScaling(a,b,&worst_joint);
             if(s > sStar)
             {
                 sStar = s;
@@ -359,13 +360,10 @@ bool ChainIkSolverVel_MT_FP_JL::checkVelocityLimits(const VectorJ& q_in, const V
     return true;
 }
 
-double ChainIkSolverVel_MT_FP_JL::computeMaxScaling(const VectorJ& q_in, const VectorJ& a, const VectorJ& b, int* r)
+double ChainIkSolverVel_MT_FP_JL::computeMaxScaling(const VectorJ& a, const VectorJ& b, int* r)
 {
-    updateVelocityLimits(q_in);
-    
     // TODO: remove after debugging
     std::cout << CLASS_NAMESPACE << __func__ << std::endl;
-    std::cout << " : q_in     = [" << q_in.transpose() << "]" << std::endl;
     std::cout << " : a        = [" << a.transpose() << "]" << std::endl;
     std::cout << " : b        = [" << b.transpose() << "]" << std::endl;
     std::cout << " : q_dot_lb = [" << q_dot_lb.transpose() << "]" << std::endl;
