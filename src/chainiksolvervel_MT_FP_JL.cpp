@@ -252,7 +252,10 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
             if( (NJ_k * weightW).colPivHouseholderQr().rank() < xi_k.rows() )
             {
                 pinvDLS(NJ_k * weightWstar, JNW_k_pinv);
-                S_k = qNstar + JNW_k_pinv*(sStar*xi_k - J_k * qNstar);
+                if(sStar == 0.0)
+                    S_k = S_k_old;
+                else
+                    S_k = qNstar + JNW_k_pinv*(sStar*xi_k - J_k * qNstar);
 #if DEBUG>1
                 ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : exiting after enforcing joint limits at task #" << k+1 << " out of " << task_nr_ << " after performing " << 100*sStar << "% of last task");
 #endif
