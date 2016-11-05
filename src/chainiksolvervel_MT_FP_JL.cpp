@@ -182,14 +182,23 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
         double s = 1.0;
         // largest scale factor found
         double sStar = 0.0;
+        // Null-projected jacobian considering also saturations
+        MatrixJ Nbar_k = N_k;
+        // Null-projected jacobian for projectin saturations in the previous (k-1) task null-spaces
+        MatrixJ Ntilde_k;
         // velocity vector to saturate, used in internal loop
-        VectorJ qN = S_k_old;
+        VectorJ qN; // = S_k_old;
+        qN.setZero();
         // saturated velocities in the best task scaling scenario
         VectorJ qNstar = qN;
         // weight matrix in the best task scaling scenario
         MatrixJ weightWstar = weightW;
+        // null-projected jacobian considering also saturations in the best task scaling scenario
+        MatrixJ Nbar_star = Nbar_k;
         // pseudo-inverse of jacobian projected in the null-space with saturations (initially equal to non-saturated pseudo-inverse)
-        MatrixJX JNW_k_pinv = NJ_k_pinv;
+        MatrixXJ JNbar_k = NJ_k;
+        // pseudo-inverse of jacobian projected in the null-space with saturations (initially equal to non-saturated pseudo-inverse)
+        MatrixJX JNbar_k_pinv = NJ_k_pinv;
         
         // check limits based on q_in
         bool respecting_limits = false;
@@ -219,7 +228,8 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
 #endif
             
             VectorJ a;
-            a.noalias() = weightW*JNW_k_pinv*xi_k;
+            // pre-multiplication is only to make sure a is zero where W is zero...
+            a.noalias() = weightW*JNbar_k_pinv*xi_k;
             // compute b -- S_k is the variable which gets updated also in the internal cycle
             VectorJ b = S_k - a; 
             
@@ -230,6 +240,7 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
                 sStar = s;
                 weightWstar = weightW;
                 qNstar = qN;
+                Nbar_star = Nbar_k;
             }
             // TODO - remove - debug only
             std::cout << "worst_joint=" << worst_joint << std::endl;
@@ -247,19 +258,30 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
                 qN(worst_joint) = q_dot_ub(worst_joint);
             else
                 assert(false && "S_k inside limits and a(worst_joint) = 0.0 should not be a problem!");
+            
+            // subtract (k-1)-th task component
+            qN(worst_joint) -= S_k_old(worst_joint);
 
             // TODO - remove - debug only
             std::cout << "qN = [" << qN.transpose() << "]" << std::endl;
             
-            // the task went out of scope of the jacobian (deficient rank): scale it and exit
+            MatrixJX IWN_k_pinv;
+            pinvDLS((MatrixJ::Identity() - weightW)*N_k,IWN_k_pinv);
+            Nbar_k = N_k - IWN_k_pinv*N_k;
+            JNbar_k = J_k*Nbar_k;
             
-            if( (NJ_k * weightW).colPivHouseholderQr().rank() < xi_k.rows() )
+            // the task went out of scope of the jacobian (deficient rank): scale it and exit the k-th task cycle
+            if( (JNbar_k).colPivHouseholderQr().rank() < xi_k.rows() )
             {
-                pinvDLS(NJ_k * weightWstar, JNW_k_pinv);
+                pinvDLS((MatrixJ::Identity() - weightWstar)*N_k,IWN_k_pinv);
+                VectorJ q_tilde_k = S_k_old + IWN_k_pinv*qNstar;
+                Nbar_k = N_k - IWN_k_pinv*N_k;
+                JNbar_k = J_k*Nbar_k;
+                pinvDLS(JNbar_k, JNbar_k_pinv);
                 if(sStar == 0.0)
                     S_k = S_k_old;
                 else
-                    S_k = qNstar + JNW_k_pinv*(sStar*xi_k - J_k * qNstar);
+                    S_k = q_tilde_k + JNbar_k_pinv*(sStar*xi_k - J_k * q_tilde_k);
 #if DEBUG>1
                 ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : exiting after enforcing joint limits at task #" << k+1 << " out of " << task_nr_ << " after performing " << 100*sStar << "% of last task");
 #endif
@@ -274,9 +296,10 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
             }
 
             // compute an extra step and check again for limits
-            pinvDLS(NJ_k * weightW, JNW_k_pinv);
+            pinvDLS(JNbar_k,JNbar_k_pinv);
+            VectorJ q_tilde_k = S_k_old + IWN_k_pinv*qN;
             // ensure delta_q_dot is zero where it should be
-            S_k = qN + weightW*JNW_k_pinv*(xi_k - J_k * qN);
+            S_k = q_tilde_k + weightW*JNbar_k_pinv*(xi_k - J_k * q_tilde_k);
             
             respecting_limits = checkVelocityLimits(q_in.data,S_k);
         }
