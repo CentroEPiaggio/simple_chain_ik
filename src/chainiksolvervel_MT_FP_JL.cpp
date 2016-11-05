@@ -230,8 +230,10 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
 #endif
             
             VectorJ a;
+            // TODO: check if multiplying by weightW is actually needed
             // pre-multiplication is only to make sure a is zero where W is zero...
-            a.noalias() = weightW*JNbar_k_pinv*xi_k;
+            // a.noalias() = weightW*JNbar_k_pinv*xi_k;
+            a.noalias() = JNbar_k_pinv*xi_k;
             // compute b -- S_k is the variable which gets updated also in the internal cycle
             VectorJ b = S_k - a; 
             
@@ -299,6 +301,7 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
 #endif
                 // return some inaccuracy error, but do not fail
                 qdot_out.data = S_k;
+                // TODO: remove the return statement, and continue instead with lower priority tasks (all matrixes have been updated)
                 return E_SNS_NEEDED;
             }
             // TODO: remove - debug only
@@ -337,7 +340,9 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
                 return E_SNS_NEEDED;
             }
             // ensure delta_q_dot is zero where it should be
-            S_k = q_tilde_k + weightW*JNbar_k_pinv*(xi_k - J_k * q_tilde_k);
+            // TODO: check if multiplying by weightW is actually needed
+            // S_k = q_tilde_k + weightW*JNbar_k_pinv*(xi_k - J_k * q_tilde_k);
+            S_k = q_tilde_k + JNbar_k_pinv*(xi_k - J_k * q_tilde_k);
             
             respecting_limits = checkVelocityLimits(q_in.data,S_k);
         }
