@@ -190,13 +190,7 @@ int main(int argc, char** argv)
         {
             ROS_ERROR_STREAM(CLASS_NAMESPACE << " : unable to get IK! Error " << solver_error << " > " << lh_solver.getIKSolver()->strError(solver_error));
             ROS_WARN_STREAM(CLASS_NAMESPACE << " : was able to move until y=" << target.p.y());
-            if(changed_limits++ > 0 || solver_error != KDL::ChainIkSolverPos_relaxed::E_MAX_ITERATIONS_EXCEEDED)
-                break;
-            
-            Mx(3,0) = 1e-10*0.01; // care less about x-rotation
-            Mx(4,0) = 1e-10*0.01; // care less about y-rotation
-            lh_solver.changeIkTaskWeigth(Mx);
-            continue;
+            break;
         }
         publishConfig(lh_solver.jointNames(),q_out,joint_state_pub);
         computeAndDisplayDifference(target,q_out,lh_solver);
