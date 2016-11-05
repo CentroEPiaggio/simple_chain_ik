@@ -250,19 +250,29 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
             weightW(worst_joint,worst_joint) = 0.0;
             // apply in qN the limit resulting from S_k (and a contribution from a if S_k was not out of limits!)
             if(S_k(worst_joint) >= q_dot_ub(worst_joint))
-                qN(worst_joint) = q_dot_ub(worst_joint);
+            {
+                std::cout << "saturating ub..." << std::endl;
+                qN(worst_joint) = q_dot_ub(worst_joint) - S_k_old(worst_joint);
+            }
             else if(S_k(worst_joint) <= q_dot_lb(worst_joint))
-                qN(worst_joint) = q_dot_lb(worst_joint);
-            // NOTE: cases in which S_k is inside the limits, but just because a is keeping me there
-            else if(a(worst_joint) < 0.0)
-                qN(worst_joint) = q_dot_lb(worst_joint);
-            else if(a(worst_joint) > 0.0)
-                qN(worst_joint) = q_dot_ub(worst_joint);
+            {
+                std::cout << "saturating lb..." << std::endl;
+                qN(worst_joint) = q_dot_lb(worst_joint) - S_k_old(worst_joint);
+            }
             else
-                assert(false && "S_k inside limits and a(worst_joint) = 0.0 should not be a problem!");
+                std::cout << "NOT saturating anything..." << std::endl;
             
-            // subtract (k-1)-th task component
-            qN(worst_joint) -= S_k_old(worst_joint);
+//             // NOTE: cases in which S_k is inside the limits, but just because a is keeping me there
+//             // TODO: check if these are actually needed...
+//             else if(a(worst_joint) < 0.0)
+//                 qN(worst_joint) = q_dot_lb(worst_joint);
+//             else if(a(worst_joint) > 0.0)
+//                 qN(worst_joint) = q_dot_ub(worst_joint);
+//             else
+//                 assert(false && "S_k inside limits and a(worst_joint) = 0.0 should not be a problem!");
+//             
+//             // subtract (k-1)-th task component
+//             qN(worst_joint) -= S_k_old(worst_joint);
 
             // TODO - remove - debug only
             std::cout << "qN = [" << qN.transpose() << "]" << std::endl;
@@ -472,11 +482,11 @@ double ChainIkSolverVel_MT_FP_JL::computeMaxScaling(const VectorJ& a, const Vect
     if((smin > smax) || (smax < 0.0) || (smin > 1.0))
     {
         std::cout << " : returning 0" << std::endl;
-        if(smax >= 0.0)
-        {
-            *r = r2;
-            std::cout << " : ... recomputing worst_joint=" << *r << std::endl;
-        }
+//         if(smax >= 0.0)
+//         {
+//             *r = r2;
+//             std::cout << " : ... recomputing worst_joint=" << *r << std::endl;
+//         }
         return 0.0;
     }
     else
