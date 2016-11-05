@@ -304,7 +304,7 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
             // TODO: remove - debug only
             else
             {
-                std::cout << CLASS_NAMESPACE << __func__ << " : NOT YET exiting (cycle #" << counter++ << "), rank=" << (NJ_k * weightW).colPivHouseholderQr().rank() << " | task dimension=" << xi_k.rows() << std::endl;
+                std::cout << CLASS_NAMESPACE << __func__ << " : NOT YET exiting (cycle #" << counter++ << "), rank=" << (JNbar_k).colPivHouseholderQr().rank() << " | task dimension=" << xi_k.rows() << std::endl;
             }
 
             // compute an extra step and check again for limits
