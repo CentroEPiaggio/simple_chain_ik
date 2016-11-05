@@ -365,8 +365,10 @@ bool ChainIkSolverVel_MT_FP_JL::checkVelocityLimits(const VectorJ& q_in, const V
     
     int ru,cu,rl,cl;
     double maxu,maxl;
-    maxu = ((q_in + q_dot_k) - q_ub).maxCoeff(&ru,&cu);
-    maxl = (q_lb - (q_in + q_dot_k)).maxCoeff(&rl,&cl);
+    // maxu = ((q_in + q_dot_k) - q_ub).maxCoeff(&ru,&cu);
+    // maxl = (q_lb - (q_in + q_dot_k)).maxCoeff(&rl,&cl);
+    maxu = (q_dot_k - q_dot_ub).maxCoeff(&ru,&cu);
+    maxl = (q_dot_lb - q_dot_k).maxCoeff(&rl,&cl);
     
     // TODO: remove after debugging
     std::cout << CLASS_NAMESPACE << __func__ << std::endl;
@@ -379,7 +381,8 @@ bool ChainIkSolverVel_MT_FP_JL::checkVelocityLimits(const VectorJ& q_in, const V
     to_be_checked_for_limits_.setZero();
     for(int i=0; i<JS_dim; ++i)
     {
-        if(((q_in(i) + q_dot_k(i)) - q_ub(i) > QDOT_ZERO) || (q_lb(i) - (q_in(i) + q_dot_k(i)) > QDOT_ZERO))
+        // if(((q_in(i) + q_dot_k(i)) - q_ub(i) > QDOT_ZERO) || (q_lb(i) - (q_in(i) + q_dot_k(i)) > QDOT_ZERO))
+        if((q_dot_k(i) - q_dot_ub(i) > QDOT_ZERO) || (q_dot_lb(i) - q_dot_k(i) > QDOT_ZERO))
             to_be_checked_for_limits_(i) = 1.0;
     }
     std::cout << ": to_be_checked_for_limits_=[" << to_be_checked_for_limits_.transpose() << "]" << std::endl;
