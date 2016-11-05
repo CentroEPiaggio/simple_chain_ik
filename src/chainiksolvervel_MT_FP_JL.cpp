@@ -403,6 +403,7 @@ double ChainIkSolverVel_MT_FP_JL::computeMaxScaling(const VectorJ& a, const Vect
     std::cout << " : b        = [" << b.transpose() << "]" << std::endl;
     std::cout << " : q_dot_lb = [" << q_dot_lb.transpose() << "]" << std::endl;
     std::cout << " : q_dot_ub = [" << q_dot_ub.transpose() << "]" << std::endl;
+    std::cout << " : weightW  = [" << weightW.diagonal().transpose() << "]" << std::endl;
 
     VectorJ sMin, sMax;
     // the use of a for cycle is maybe the best thing here...
@@ -411,7 +412,14 @@ double ChainIkSolverVel_MT_FP_JL::computeMaxScaling(const VectorJ& a, const Vect
         // if(weightW.diagonal()(i) == 0.0 || to_be_checked_for_limits_(i) == 0.0)
         if(weightW.diagonal()(i) == 0.0)
         {
-            assert(b(i) <= q_dot_ub(i) && b(i) >= q_dot_lb(i));
+            if(!((b(i) <= (q_dot_ub(i) + QDOT_ZERO)) && (b(i) >= (q_dot_lb(i) - QDOT_ZERO))))
+            {
+                std::cout << " - looking at component #" << i << std::endl;
+                std::cout << " - (q_dot_ub(i) - b(i)) = " << (q_dot_ub(i) - b(i)) << std::endl;
+                std::cout << " - (b(i) - q_dot_lb(i)) = " << (b(i) - q_dot_lb(i)) << std::endl;
+                abort();
+            }
+            assert((b(i) <= (q_dot_ub(i) + QDOT_ZERO)) && (b(i) >= (q_dot_lb(i) - QDOT_ZERO)));
             sMin(i) = -1.0*std::numeric_limits<double>::max();
             sMax(i) = std::numeric_limits<double>::max();
         }
