@@ -16,7 +16,9 @@
 #define CLASS_NAMESPACE "ChainIkSolverVel_MT_FP_JL::"
 
 #define TEST_AVOID_LIMITS 0
-#define QDOT_ZERO 0e-6
+// value used when checking for a value to be zero: the smaller the lambda, the higher this should be
+// (found to be working empirically when QDOT_ZERO * lambda = 1e-10)
+#define QDOT_ZERO 1e-5
 
 using namespace KDL;
 
