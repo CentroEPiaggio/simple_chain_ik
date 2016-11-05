@@ -34,7 +34,7 @@ void initialize_solvers(ChainAndSolvers& container, const urdf::Model& urdf_mode
         j++;
     }
     
-    if(!container.setSolverParameters(q_min,q_max,10,5e-4,150,1e-5,1e-5) || !container.initSolvers())
+    if(!container.setSolverParameters(q_min,q_max,20,5e-4,150,1e-5,1e-5) || !container.initSolvers())
     {
         std::cout << CLASS_NAMESPACE << __func__ << " : unable to initialize the solvers! Returning..." << std::endl;
         abort();
