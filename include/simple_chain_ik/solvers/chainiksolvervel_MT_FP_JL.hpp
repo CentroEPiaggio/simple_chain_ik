@@ -6,6 +6,8 @@
 
 #include "kdl/chainiksolver.hpp"
 #include "kdl/chainjnttojacsolver.hpp"
+#include "kdl/chainfksolverpos_recursive.hpp"
+#include "kdl/frames.hpp"
 #include <Eigen/Dense>
 
 namespace KDL
@@ -152,6 +154,8 @@ private:
     unsigned int nj;
     /// task space dimension
     unsigned int ts_dim;
+    /// forward kinematics solver
+    ChainFkSolverPos_recursive fksolver;
     
     // Jacobian parameters
     /// Joint to Jacobian solver
@@ -205,6 +209,10 @@ private:
     /// joint velocity upper bounds
     VectorJ q_dot_ub;
     
+    // tolerance to apply on the model in order to scale the full q_dot vector
+    // if 0.0, no scaling is applied
+    double model_tolerance_;
+    
 private:
     /**
      * @brief Select the submatrix associated to the rows of @p jac which correspond to rows where @p task_list_ == @p k
@@ -253,6 +261,12 @@ private:
      */
     bool enforceWLimits(KDL::VectorJ& q_dot);
     
+    /**
+     * @brief Use line-search to extract the best scaling factor to give the output alpha*S_k
+     * 
+     * @return The best alpha parameter found, based on a tolerance on the model
+     */
+    double computeBestAlphaLineSearch(const KDL::JntArray& q, const KDL::Twist& xi, const KDL::JntArray& q_dot, const KDL::Jacobian& jac);
 };
 
 /// required forward declaration of template class for it to be instanciated in the library

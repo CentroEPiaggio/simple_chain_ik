@@ -32,6 +32,7 @@ ChainIkSolverVel_MT_FP_JL::ChainIkSolverVel_MT_FP_JL(const Chain& chain, double 
     nj(JS_dim),
     jac_kdl(nj),
     ts_dim(TS_dim),
+    fksolver(chain),
     jnt2jac(chain),
     weightTS(MatrixT::Identity()),
     weightW(MatrixJ::Identity()),
@@ -45,7 +46,8 @@ ChainIkSolverVel_MT_FP_JL::ChainIkSolverVel_MT_FP_JL(const Chain& chain, double 
     S_k_old(VectorJ::Zero()),
     S_k(VectorJ::Zero()),
     N_k(MatrixJ::Identity()),
-    xi(VectorT::Zero())
+    xi(VectorT::Zero()),
+    model_tolerance_(0.0)
 {
     assert(nj == chain.getNrOfJoints());
 }
@@ -571,4 +573,54 @@ bool ChainIkSolverVel_MT_FP_JL::enforceWLimits(VectorJ& q_dot)
         }
     }
     return respecting_limits;
+}
+
+double ChainIkSolverVel_MT_FP_JL::computeBestAlphaLineSearch(const KDL::JntArray& q, const KDL::Twist& xi, const KDL::JntArray& q_dot, const KDL::Jacobian& jac)
+{
+    // compute originally desired pose and beginning pose
+    KDL::Frame pStar,p;
+    fksolver.JntToCart(q,p);
+    pStar = KDL::addDelta(p,xi,1.0);
+    // compute twist due to q_dot
+    VectorT vec_p = jac.data*q_dot.data;
+    KDL::Twist delta_p;
+    for(int j=0; j<TS_dim; ++j)
+        delta_p[j] = vec_p(j);
+    
+    double alpha = 1.0;
+    double alpha_prev_low = 0.0;
+    double alpha_prev_high = 1.0;
+    KDL::JntArray q_a(JS_dim);
+    KDL::Frame p_alpha,p_alpha_lin;
+    KDL::Twist diff_t;
+    
+    while(alpha_prev_high - alpha_prev_low > 0.125) // i.e. either 1 or 4 steps
+    {
+        // compute REAL pose at alpha distance from q, in the direction of q_dot
+        q_a.data = q.data + (q_dot.data * alpha);
+        fksolver.JntToCart(q_a,p_alpha);
+        
+        // compute LINEAR pose at alpha distance from q, in the direction of q_dot
+        p_alpha_lin = KDL::addDelta(p,delta_p,alpha);
+        
+        // take the difference, compute the norm, check for tolerance reached
+        diff_t = KDL::diff(p_alpha,p_alpha_lin);
+        for(int j=0; j<TS_dim; ++j)
+            diff_t[j] *= weightTS(j,j);
+        if(Equal(diff_t,Twist::Zero(),model_tolerance_))
+        {
+            alpha_prev_low = alpha;
+        }
+        else
+        {
+            alpha_prev_high = alpha;
+        }
+        alpha = (alpha_prev_high + alpha_prev_low)/2.0;
+    }
+    
+    std::cout << CLASS_NAMESPACE << __func__ << " : scaling the task (if alpha is 1.0 > 1 iteration, else always max iterations) > alpha=" << alpha << std::endl;
+    char y;
+    std::cin >> y;
+    
+    return alpha;
 }
