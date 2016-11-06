@@ -18,6 +18,8 @@
 // value used when checking for a value to be zero: the smaller the lambda, the higher this should be
 // (found to be working empirically when QDOT_ZERO * lambda = 1e-10)
 #define QDOT_ZERO 1e-5
+// choose whether to scale only the task or also the contribution to the last task given by the previous (k-1) tasks
+#define SCALE_PREVIOUS_TASK_CONTRIBUTION 0
 
 using namespace KDL;
 
@@ -214,7 +216,18 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
             // TODO: check if multiplying by weightW is actually needed
             // pre-multiplication is only to make sure a is zero where W is zero...
             // a.noalias() = weightW*JNbar_k_pinv*xi_k;
+#if (SCALE_PREVIOUS_TASK_CONTRIBUTION > 0)
+            {
+                pinvDLS((MatrixJ::Identity() - weightW)*N_k,IWN_k_pinv);
+                Nbar_k = N_k - IWN_k_pinv*N_k;
+                JNbar_k = J_k*Nbar_k;
+                pinvDLS(JNbar_k,JNbar_k_pinv);
+                VectorJ q_tilde_k = S_k_old + IWN_k_pinv*qN;
+                a = JNbar_k_pinv*(xi_k - J_k*q_tilde_k);
+            }
+#else
             a.noalias() = JNbar_k_pinv*xi_k;
+#endif
             // compute b -- S_k is the variable which gets updated also in the internal cycle
             VectorJ b = S_k - a; 
             
@@ -275,7 +288,14 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
                     NJ_k_pinv.setZero();
                 }
                 else
+                {
+#if SCALE_PREVIOUS_TASK_CONTRIBUTION>0
+                    // test the idea of scaling also effect of k-1 tasks onto k-th task
+                    S_k = q_tilde_k + JNbar_k_pinv*(sStar*(xi_k - J_k * q_tilde_k));
+#else
                     S_k = q_tilde_k + JNbar_k_pinv*(sStar*xi_k - J_k * q_tilde_k);
+#endif
+                }
 #if DEBUG>1
                 ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : enforcing joint limits at task #" << k+1 << " out of " << task_nr_ << " after performing " << 100*sStar << "% of last task - continuing with next one...");
 #endif
