@@ -154,7 +154,7 @@ int main(int argc, char** argv)
     
     ROS_INFO_STREAM(BLUE << CLASS_NAMESPACE << " : trying again adding some more tolerance for rotation..." << NC);
     Eigen::Matrix<double,6,1> Mx;
-    Mx.setOnes(Mx.RowsAtCompileTime,Mx.ColsAtCompileTime);
+    Mx.setZero(Mx.RowsAtCompileTime,Mx.ColsAtCompileTime);
     Mx(0,0) = 1.0;
     Mx(1,0) = 1.0;
     Mx(2,0) = 1.0;
@@ -185,13 +185,29 @@ int main(int argc, char** argv)
         ROS_INFO_STREAM(BLUE << CLASS_NAMESPACE << " : computing relaxed IK #" << ++counter << NC);
         target.p.y( target.p.y() + 0.025 );
         // use old q_out as new seed
-        solver_error = lh_solver.getIKSolver()->CartToJnt(q_out,target,q_out);
+        KDL::JntArray q_out_old(q_out);
+        solver_error = lh_solver.getIKSolver()->CartToJnt(q_out_old,target,q_out);
         if(solver_error < 0)
         {
             ROS_ERROR_STREAM(CLASS_NAMESPACE << " : unable to get IK! Error " << solver_error << " > " << lh_solver.getIKSolver()->strError(solver_error));
+            // treat separately MAX_ITERATION error
+            if(solver_error == -5 && changed_limits++ == 0)
+            {
+                ROS_WARN_STREAM(CLASS_NAMESPACE << " : was able to move until y=" << target.p.y() << " w/o changing weights...");
+                // ATTENTION: this is the task expressed in "global" frame, so x- and y-rotations in world
+                Mx(3,0) = 0.0;
+                Mx(4,0) = 0.0;
+                lh_solver.changeIkTaskWeigth(Mx);
+                target.p.y( target.p.y() - 0.025 );
+                char y;
+                std::cin >> y;
+                continue;
+            }
+            
             ROS_WARN_STREAM(CLASS_NAMESPACE << " : was able to move until y=" << target.p.y());
             break;
         }
+        q_out_old = q_out;
         publishConfig(lh_solver.jointNames(),q_out,joint_state_pub);
         computeAndDisplayDifference(target,q_out,lh_solver);
         
