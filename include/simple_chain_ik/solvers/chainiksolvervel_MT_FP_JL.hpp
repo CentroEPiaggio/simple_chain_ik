@@ -244,6 +244,15 @@ private:
      */
     void updateVelocityLimits(const VectorJ& q_in);
     
+    /**
+     * @brief Enforce the limits on the vector @p q_dot dictated by weightW: if an element of the diagonal of weightW is zero, the corresponding value must be saturated
+     * 
+     * @param q_dot the joint velocity vector to check for limits
+     * 
+     * @return true if all joints were already inside limits, false otherwise
+     */
+    bool enforceWLimits(KDL::VectorJ& q_dot);
+    
 };
 
 /// required forward declaration of template class for it to be instanciated in the library

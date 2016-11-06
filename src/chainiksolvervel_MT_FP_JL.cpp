@@ -563,3 +563,26 @@ void ChainIkSolverVel_MT_FP_JL::selectMatrixRows(const VectorTi& task_list_, uin
     std::cout << "xi([" << task_list_.transpose() << "] == " << k << ") : " << xi_k.transpose() << std::endl;
 #endif
 }
+
+bool ChainIkSolverVel_MT_FP_JL::enforceWLimits(VectorJ& q_dot)
+{
+    // enforce limits due to W in S_k
+    bool respecting_limits = true;
+    for(int i=0; i<JS_dim; ++i)
+    {
+        if(weightW(i,i) == 0.0)
+        {
+            if(q_dot(i) < q_dot_lb(i))
+            {
+                respecting_limits = false;
+                q_dot(i) = q_dot_lb(i);
+            }
+            else if(q_dot(i) > q_dot_ub(i))
+            {
+                respecting_limits = false;
+                q_dot(i) = q_dot_ub(i);
+            }
+        }
+    }
+    return respecting_limits;
+}
