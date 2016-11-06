@@ -18,6 +18,8 @@
 // value used when checking for a value to be zero: the smaller the lambda, the higher this should be
 // (found to be working empirically when QDOT_ZERO * lambda = 1e-10)
 #define QDOT_ZERO 1e-5
+// task weight margin to avoid oscillations in velocity commands
+#define S_margin 0.0
 // choose whether to scale only the task or also the contribution to the last task given by the previous (k-1) tasks
 #define SCALE_PREVIOUS_TASK_CONTRIBUTION 0
 
@@ -280,7 +282,7 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
                 Nbar_k = N_k - IWN_k_pinv*N_k;
                 JNbar_k = J_k*Nbar_k;
                 pinvDLS(JNbar_k, JNbar_k_pinv);
-                if(sStar == 0.0)
+                if(k>0 && sStar <= S_margin)
                 {
                     S_k = S_k_old;
                     // as we break, and potentially update the task-space projector, avoid including the last task
@@ -291,9 +293,9 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
                 {
 #if SCALE_PREVIOUS_TASK_CONTRIBUTION>0
                     // test the idea of scaling also effect of k-1 tasks onto k-th task
-                    S_k = q_tilde_k + JNbar_k_pinv*(sStar*(xi_k - J_k * q_tilde_k));
+                    S_k = q_tilde_k + JNbar_k_pinv*((sStar-S_margin)*(xi_k - J_k * q_tilde_k));
 #else
-                    S_k = q_tilde_k + JNbar_k_pinv*(sStar*xi_k - J_k * q_tilde_k);
+                    S_k = q_tilde_k + JNbar_k_pinv*((sStar-S_margin)*xi_k - J_k * q_tilde_k);
 #endif
                 }
 #if DEBUG>1
@@ -484,7 +486,7 @@ double ChainIkSolverVel_MT_FP_JL::computeMaxScaling(const VectorJ& a, const Vect
     std::cout << " : worst_joint=" << *r << std::endl;
 #endif
     
-    if((smin > smax) || (smax < 0.0) || (smin > 1.0))
+    if((smin > smax) || (smax < 0.0) || (smin > 1.0 + S_margin))
     {
 #if DEBUG>1
         std::cout << " : returning 0" << std::endl;
