@@ -200,6 +200,8 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
         MatrixXJ JNbar_k = NJ_k;
         // pseudo-inverse of jacobian projected in the null-space with saturations (initially equal to non-saturated pseudo-inverse)
         MatrixJX JNbar_k_pinv = NJ_k_pinv;
+        // pseudo-inverse of the auxiliary null-projector, which cosiders also joint saturation
+        MatrixJX IWN_k_pinv;
         
         // check limits based on q_in
         bool respecting_limits = false;
@@ -225,40 +227,34 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
                 qNstar = qN;
                 Nbar_star = Nbar_k;
             }
-            // TODO - remove - debug only
-            std::cout << "worst_joint=" << worst_joint << std::endl;
             
             weightW(worst_joint,worst_joint) = 0.0;
             // apply in qN the limit resulting from S_k (and a contribution from a if S_k was not out of limits!)
             if(S_k(worst_joint) >= q_dot_ub(worst_joint))
             {
+#if DEBUG>2
                 std::cout << "saturating ub..." << std::endl;
+#endif
                 qN(worst_joint) = q_dot_ub(worst_joint) - S_k_old(worst_joint);
             }
             else if(S_k(worst_joint) <= q_dot_lb(worst_joint))
             {
+#if DEBUG>2
                 std::cout << "saturating lb..." << std::endl;
+#endif
                 qN(worst_joint) = q_dot_lb(worst_joint) - S_k_old(worst_joint);
             }
             else
+            {
+#if DEBUG>2
                 std::cout << "NOT saturating anything..." << std::endl;
-            
-//             // NOTE: cases in which S_k is inside the limits, but just because a is keeping me there
-//             // TODO: check if these are actually needed...
-//             else if(a(worst_joint) < 0.0)
-//                 qN(worst_joint) = q_dot_lb(worst_joint);
-//             else if(a(worst_joint) > 0.0)
-//                 qN(worst_joint) = q_dot_ub(worst_joint);
-//             else
-//                 assert(false && "S_k inside limits and a(worst_joint) = 0.0 should not be a problem!");
-//             
-//             // subtract (k-1)-th task component
-//             qN(worst_joint) -= S_k_old(worst_joint);
+#endif
+            }
 
-            // TODO - remove - debug only
+#if DEBUG>1
             std::cout << "qN = [" << qN.transpose() << "]" << std::endl;
+#endif
             
-            MatrixJX IWN_k_pinv;
             pinvDLS((MatrixJ::Identity() - weightW)*N_k,IWN_k_pinv);
             Nbar_k = N_k - IWN_k_pinv*N_k;
             JNbar_k = J_k*Nbar_k;
