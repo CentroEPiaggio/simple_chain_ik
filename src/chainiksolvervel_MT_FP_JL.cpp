@@ -215,9 +215,6 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
         while(!respecting_limits)
         {
             VectorJ a;
-            // TODO: check if multiplying by weightW is actually needed
-            // pre-multiplication is only to make sure a is zero where W is zero...
-            // a.noalias() = weightW*JNbar_k_pinv*xi_k;
 #if (SCALE_PREVIOUS_TASK_CONTRIBUTION > 0)
             {
                 pinvDLS((MatrixJ::Identity() - weightW)*N_k,IWN_k_pinv);
@@ -230,6 +227,8 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
 #else
             a.noalias() = JNbar_k_pinv*xi_k;
 #endif
+            // ensure delta_q_dot is zero where it should be multiplying by weightW (needed for numerical reasons)
+            a = weightW*a;
             // compute b -- S_k is the variable which gets updated also in the internal cycle
             VectorJ b = S_k - a; 
             
@@ -279,6 +278,8 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
             {
                 pinvDLS((MatrixJ::Identity() - weightWstar)*N_k,IWN_k_pinv);
                 VectorJ q_tilde_k = S_k_old + IWN_k_pinv*qNstar;
+                // enforce limits on q_tilde_k
+                enforceWLimits(q_tilde_k);
                 Nbar_k = N_k - IWN_k_pinv*N_k;
                 JNbar_k = J_k*Nbar_k;
                 pinvDLS(JNbar_k, JNbar_k_pinv);
@@ -293,9 +294,9 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
                 {
 #if SCALE_PREVIOUS_TASK_CONTRIBUTION>0
                     // test the idea of scaling also effect of k-1 tasks onto k-th task
-                    S_k = q_tilde_k + JNbar_k_pinv*((sStar-S_margin)*(xi_k - J_k * q_tilde_k));
+                    S_k = q_tilde_k + weightWstar*(JNbar_k_pinv*((sStar-S_margin)*(xi_k - J_k * q_tilde_k)));
 #else
-                    S_k = q_tilde_k + JNbar_k_pinv*((sStar-S_margin)*xi_k - J_k * q_tilde_k);
+                    S_k = q_tilde_k + weightWstar*(JNbar_k_pinv*((sStar-S_margin)*xi_k - J_k * q_tilde_k));
 #endif
                 }
 #if DEBUG>1
@@ -313,28 +314,13 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
             // compute an extra step and check again for limits
             pinvDLS(JNbar_k,JNbar_k_pinv);
             VectorJ q_tilde_k = S_k_old + IWN_k_pinv*qN;
+            // enforce limits on q_tilde_k
+            enforceWLimits(q_tilde_k);
             
-            // ensure delta_q_dot is zero where it should be
-            // TODO: check if multiplying by weightW is actually needed
-            // S_k = q_tilde_k + weightW*JNbar_k_pinv*(xi_k - J_k * q_tilde_k);
-            S_k = q_tilde_k + JNbar_k_pinv*(xi_k - J_k * q_tilde_k);
+            // ensure delta_q_dot is zero where it should be multiplying by weightW (needed for numerical reasons)
+            S_k = q_tilde_k + weightW*(JNbar_k_pinv*(xi_k - J_k * q_tilde_k));
             
             respecting_limits = checkVelocityLimits(q_in.data,S_k);
-            
-            // enforce limits due to W in S_k
-            respecting_limits = true;
-            for(int i=0; i<JS_dim; ++i)
-            {
-                if(weightW(i,i) == 0.0 && to_be_checked_for_limits_(i) == 1.0)
-                {
-                    to_be_checked_for_limits_(i) = 0.0;
-                    if(S_k(i) <= q_dot_lb(i))
-                        S_k(i) = q_dot_lb(i);
-                    else if(S_k(i) >= q_dot_ub(i))
-                        S_k(i) = q_dot_ub(i);
-                }
-                respecting_limits &= (to_be_checked_for_limits_(i) == 0.0);
-            }
         }
         
         // if it's not last task, compute iterative step
