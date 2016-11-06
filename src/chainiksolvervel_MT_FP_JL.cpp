@@ -49,7 +49,7 @@ ChainIkSolverVel_MT_FP_JL::ChainIkSolverVel_MT_FP_JL(const Chain& chain, double 
 
 void ChainIkSolverVel_MT_FP_JL::setJointLimits(const VectorJ& lower_bound, const VectorJ& upper_bound)
 {
-//     // either asser here or do everything in header file
+//     // either assert here or do everything in header file
 //     assert(lower_bound.rows() == nj);
 //     assert(upper_bound.rows() == nj);
     q_lb = lower_bound;
@@ -58,7 +58,7 @@ void ChainIkSolverVel_MT_FP_JL::setJointLimits(const VectorJ& lower_bound, const
 
 int ChainIkSolverVel_MT_FP_JL::setWeightJS(const MatrixJ& Mq)
 {
-//     // either asser here or do everything in header file
+//     // either assert here or do everything in header file
 //     assert(Mq.rows() == nj);
 //     assert(Mq.cols() == nj);
     
@@ -75,7 +75,7 @@ int ChainIkSolverVel_MT_FP_JL::setWeightJS(const MatrixJ& Mq)
 
 int ChainIkSolverVel_MT_FP_JL::setWeightTS(const MatrixT& weights)
 {
-//     // either asser here or do everything in header file
+//     // either assert here or do everything in header file
 //     assert(weights.rows() == ts_dim);
 //     assert(weights.cols() == ts_dim);
     
@@ -306,10 +306,11 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
 #endif
                 break;
             }
-            // TODO: remove - debug only
             else
             {
-                std::cout << CLASS_NAMESPACE << __func__ << " : NOT YET exiting (cycle #" << counter++ << "), rank=" << (JNbar_k).colPivHouseholderQr().rank() << " | task dimension=" << xi_k.rows() << std::endl;
+#if DEBUG>1
+                std::cout << CLASS_NAMESPACE << __func__ << " : NOT YET exiting (cycle #" << counter++ << "), rank=" << (JNbar_k).colPivHouseholderQr().rank() << " | task #" << k+1 << " out of " << task_nr_ << " | dimension=" << xi_k.rows() << std::endl;
+#endif
             }
 
             // compute an extra step and check again for limits
@@ -363,11 +364,6 @@ int ChainIkSolverVel_MT_FP_JL::pinvDLS(const MatrixXJ& NJ_k, MatrixJX& NJ_k_pinv
     JacobiSVD<MatrixXd> svd(weigthedJ, ComputeThinU | ComputeThinV);
     Eigen::VectorXd sigma = svd.singularValues();
     
-#if DEBUG>2
-    std::cout << CLASS_NAMESPACE << __func__ << std::endl;
-    std::cout << " : sigma = [" << sigma.transpose() << "]" << std::endl;
-#endif
-    
     double lambda_scaled = 0.0;
     double sigmaMin = sigma.minCoeff();
     if ( sigmaMin < eps )
@@ -388,37 +384,43 @@ int ChainIkSolverVel_MT_FP_JL::pinvDLS(const MatrixXJ& NJ_k, MatrixJX& NJ_k_pinv
     NJ_k_pinv.resize(JS_dim,sigma.rows());
     NJ_k_pinv.noalias() = svd.matrixV() * sigma.asDiagonal() * svd.matrixU().transpose();
     
+#if DEBUG>1
+    std::cout << CLASS_NAMESPACE << __func__ << std::endl;
+    std::cout << " : sigma = [" << sigma.transpose() << "]" << std::endl;
+    std::cout << " : zero_sv_counter = " << zero_sv_counter << std::endl;
+#endif
+    
     return zero_sv_counter;
 }
 
 bool ChainIkSolverVel_MT_FP_JL::checkVelocityLimits(const VectorJ& q_in, const VectorJ& q_dot_k)
 {
     // condition to satisfy:
-    // lb <= q+qd <= ub
+    // qd_lb <= qd <= qd_ub
     
     int ru,cu,rl,cl;
     double maxu,maxl;
-    // maxu = ((q_in + q_dot_k) - q_ub).maxCoeff(&ru,&cu);
-    // maxl = (q_lb - (q_in + q_dot_k)).maxCoeff(&rl,&cl);
     maxu = (q_dot_k - q_dot_ub).maxCoeff(&ru,&cu);
     maxl = (q_dot_lb - q_dot_k).maxCoeff(&rl,&cl);
     
-    // TODO: remove after debugging
+    to_be_checked_for_limits_.setZero();
+    for(int i=0; i<JS_dim; ++i)
+    {
+        if((q_dot_k(i) - q_dot_ub(i) > QDOT_ZERO) || (q_dot_lb(i) - q_dot_k(i) > QDOT_ZERO))
+            to_be_checked_for_limits_(i) = 1.0;
+    }
+    
+#if DEBUG>1
     std::cout << CLASS_NAMESPACE << __func__ << std::endl;
+    std::cout << " : to_be_checked_for_limits_=[" << to_be_checked_for_limits_.transpose() << "]" << std::endl;
+#endif
+#if DEBUG>2
     std::cout << " : q_in=[" << q_in.transpose() << "]" << std::endl;
     std::cout << " : q_dot_k=[" << q_dot_k.transpose() << "]" << std::endl;
     std::cout << " : q_lb=[" << q_lb.transpose() << "]" << std::endl;
     std::cout << " : q_ub=[" << q_ub.transpose() << "]" << std::endl;
     std::cout << " : maxu=" << maxu << " | maxl=" << maxl << " | ru=" << ru << " | rl=" << rl << std::endl;
-    
-    to_be_checked_for_limits_.setZero();
-    for(int i=0; i<JS_dim; ++i)
-    {
-        // if(((q_in(i) + q_dot_k(i)) - q_ub(i) > QDOT_ZERO) || (q_lb(i) - (q_in(i) + q_dot_k(i)) > QDOT_ZERO))
-        if((q_dot_k(i) - q_dot_ub(i) > QDOT_ZERO) || (q_dot_lb(i) - q_dot_k(i) > QDOT_ZERO))
-            to_be_checked_for_limits_(i) = 1.0;
-    }
-    std::cout << ": to_be_checked_for_limits_=[" << to_be_checked_for_limits_.transpose() << "]" << std::endl;
+#endif
     
     // if either one is positive (greater than a small number treated as zero), return false
     if ((maxu > QDOT_ZERO) || (maxl > QDOT_ZERO))
@@ -430,14 +432,17 @@ bool ChainIkSolverVel_MT_FP_JL::checkVelocityLimits(const VectorJ& q_in, const V
 
 double ChainIkSolverVel_MT_FP_JL::computeMaxScaling(const VectorJ& a, const VectorJ& b, int* r)
 {
-    // TODO: remove after debugging
+#if DEBUG>1
     std::cout << CLASS_NAMESPACE << __func__ << std::endl;
     std::cout << " : a        = [" << a.transpose() << "]" << std::endl;
     std::cout << " : b        = [" << b.transpose() << "]" << std::endl;
+    std::cout << " : weightW  = [" << weightW.diagonal().transpose() << "]" << std::endl;
+#endif
+#if DEBUG>2
     std::cout << " : q_dot_lb = [" << q_dot_lb.transpose() << "]" << std::endl;
     std::cout << " : q_dot_ub = [" << q_dot_ub.transpose() << "]" << std::endl;
-    std::cout << " : weightW  = [" << weightW.diagonal().transpose() << "]" << std::endl;
-
+#endif
+    
     VectorJ sMin, sMax;
     // the use of a for cycle is maybe the best thing here...
     for(int i = 0; i<JS_dim; ++i)
@@ -445,15 +450,16 @@ double ChainIkSolverVel_MT_FP_JL::computeMaxScaling(const VectorJ& a, const Vect
         // if(weightW.diagonal()(i) == 0.0 || to_be_checked_for_limits_(i) == 0.0)
         if(weightW.diagonal()(i) == 0.0)
         {
+            sMin(i) = -1.0*std::numeric_limits<double>::max();
+            sMax(i) = std::numeric_limits<double>::max();
+#if DEBUG>2
             if(!((b(i) <= (q_dot_ub(i) + QDOT_ZERO)) && (b(i) >= (q_dot_lb(i) - QDOT_ZERO))))
             {
                 std::cout << " - looking at component #" << i << std::endl;
                 std::cout << " - (q_dot_ub(i) - b(i)) = " << (q_dot_ub(i) - b(i)) << std::endl;
                 std::cout << " - (b(i) - q_dot_lb(i)) = " << (b(i) - q_dot_lb(i)) << std::endl;
             }
-
-            sMin(i) = -1.0*std::numeric_limits<double>::max();
-            sMax(i) = std::numeric_limits<double>::max();
+#endif
         }
         else
         {
@@ -461,60 +467,41 @@ double ChainIkSolverVel_MT_FP_JL::computeMaxScaling(const VectorJ& a, const Vect
             sMax(i) = (q_dot_ub(i) - b(i)) / a(i);
         }
         
-// //         if(fabs(a(i)) < QDOT_ZERO)
-//         if(weightW.diagonal()(i) == 0.0)
-//         {
-//             sMin(i) = -1.0*std::numeric_limits<double>::max();
-//             sMax(i) = std::numeric_limits<double>::max();
-//         }
-//         else
-//         {
-//             if (q_dot_lb(i) - b(i) > 0.0)
-//                 sMin(i) = (q_dot_lb(i) - b(i)) / a(i);
-//             else
-//                 sMin(i) = -1.0*std::numeric_limits<double>::max();
-//         
-//             if (q_dot_ub(i) - b(i) < 0.0)
-//                 sMax(i) = (q_dot_ub(i) - b(i)) / a(i);
-//             else
-//                 sMax(i) = std::numeric_limits<double>::max();
-//         }
-            
-        // TODO: remove debug
-        std::cout << sMin(i) << "\t" << sMax(i);
-        
+        bool swapped = false;
         if(sMin(i) > sMax(i))
         {
-            std::cout << "\t>>\tswapping!";
+            swapped = true;
             std::swap(sMin(i),sMax(i));
         }
-        std::cout << std::endl;
+#if DEBUG>2
+        std::cout << " > \t" << sMin(i) << "\t" << sMax(i) << (swapped?"\t>>\tswapping!":"") << std::endl;
+#endif
     }
-    std::cout << " : sMin     = [" << sMin.transpose() << "]" << std::endl;
-    std::cout << " : sMax     = [" << sMax.transpose() << "]" << std::endl;
     
     double smin, smax;
     int c,r2,c2;
     smax = sMax.minCoeff(r,&c);
     smin = sMin.maxCoeff(&r2,&c2);
     
+#if DEBUG>1
+    std::cout << " : sMin     = [" << sMin.transpose() << "]" << std::endl;
+    std::cout << " : sMax     = [" << sMax.transpose() << "]" << std::endl;
     std::cout << " : worst_joint=" << *r << std::endl;
-//     assert(to_be_checked_for_limits_(*r) != 0.0);
+#endif
     
     if((smin > smax) || (smax < 0.0) || (smin > 1.0))
     {
+#if DEBUG>1
         std::cout << " : returning 0" << std::endl;
-//         if(smax >= 0.0)
-//         {
-//             *r = r2;
-//             std::cout << " : ... recomputing worst_joint=" << *r << std::endl;
-//         }
+#endif
         return 0.0;
     }
     else
     {
         assert(to_be_checked_for_limits_(*r) != 0.0);
+#if DEBUG>1
         std::cout << " : returning smax=" << smax << std::endl;
+#endif
         return smax;
     }
 }
