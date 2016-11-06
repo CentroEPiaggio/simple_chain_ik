@@ -316,31 +316,6 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
             pinvDLS(JNbar_k,JNbar_k_pinv);
             VectorJ q_tilde_k = S_k_old + IWN_k_pinv*qN;
             
-            // TODO: to remove - for debug only
-            if(!checkVelocityLimits(q_in.data,q_tilde_k))
-            {
-                ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " :ATTENTION: q_tilde_k does not respect velocity limits, and this should not happen! Stopping the task here, as this is probably due to a poor inversion of the task jacobian");
-                
-                std::cout << "Testing also S_k_old for completeness..." << std::endl;
-                bool ret = checkVelocityLimits(q_in.data,S_k_old);
-                std::cout << "S_k_old did " << (ret?"":"NOT ") << "respect the limits..." << std::endl;
-                std::cout << "IWN_k_pinv*qN = " << (IWN_k_pinv*qN).transpose() << std::endl;
-                
-                // compute S_k to give as output
-                pinvDLS((MatrixJ::Identity() - weightWstar)*N_k,IWN_k_pinv);
-                VectorJ q_tilde_k = S_k_old + IWN_k_pinv*qNstar;
-                Nbar_k = N_k - IWN_k_pinv*N_k;
-                JNbar_k = J_k*Nbar_k;
-                pinvDLS(JNbar_k, JNbar_k_pinv);
-                if(sStar == 0.0)
-                    S_k = S_k_old;
-                else
-                    S_k = q_tilde_k + JNbar_k_pinv*(sStar*xi_k - J_k * q_tilde_k);
-                // return some inaccuracy error, but do not fail
-                qdot_out.data = S_k;
-                // TODO: remove the return statement, and continue instead with lower priority tasks (all matrixes have been updated)
-                return E_SNS_NEEDED;
-            }
             // ensure delta_q_dot is zero where it should be
             // TODO: check if multiplying by weightW is actually needed
             // S_k = q_tilde_k + weightW*JNbar_k_pinv*(xi_k - J_k * q_tilde_k);
@@ -430,11 +405,11 @@ bool ChainIkSolverVel_MT_FP_JL::checkVelocityLimits(const VectorJ& q_in, const V
     }
     std::cout << ": to_be_checked_for_limits_=[" << to_be_checked_for_limits_.transpose() << "]" << std::endl;
     
-    // if either one is positive (greater than a small number treated as zero), return the index of the worst one
+    // if either one is positive (greater than a small number treated as zero), return false
     if ((maxu > QDOT_ZERO) || (maxl > QDOT_ZERO))
         return false;
     
-    // none is positive, return -1
+    // none is positive, return true
     return true;
 }
 
@@ -460,9 +435,8 @@ double ChainIkSolverVel_MT_FP_JL::computeMaxScaling(const VectorJ& a, const Vect
                 std::cout << " - looking at component #" << i << std::endl;
                 std::cout << " - (q_dot_ub(i) - b(i)) = " << (q_dot_ub(i) - b(i)) << std::endl;
                 std::cout << " - (b(i) - q_dot_lb(i)) = " << (b(i) - q_dot_lb(i)) << std::endl;
-                abort();
             }
-            assert((b(i) <= (q_dot_ub(i) + QDOT_ZERO)) && (b(i) >= (q_dot_lb(i) - QDOT_ZERO)));
+
             sMin(i) = -1.0*std::numeric_limits<double>::max();
             sMax(i) = std::numeric_limits<double>::max();
         }
