@@ -15,7 +15,6 @@
 #define DEBUG 2
 #define CLASS_NAMESPACE "ChainIkSolverVel_MT_FP_JL::"
 
-#define TEST_AVOID_LIMITS 0
 // value used when checking for a value to be zero: the smaller the lambda, the higher this should be
 // (found to be working empirically when QDOT_ZERO * lambda = 1e-10)
 #define QDOT_ZERO 1e-5
@@ -209,26 +208,6 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
         // enforce limits - if failed, don't go on with tasks
         while(!respecting_limits)
         {
-#if (TEST_AVOID_LIMITS > 0)
-            // ATTENTION: doubling the code on purpose: this will go away once we solve problems related to the method...
-            pinvDLS(NJ_k * weightW, JNW_k_pinv);
-            S_k = qN + JNW_k_pinv*(s*xi_k - J_k * qN);
-            
-            // testing "go away from joint limits" component
-            // scale factor for limit avoidance component
-            double alpha = 0.1;
-            VectorJ q_in_eig;
-            for(int i=0; i<q_in.rows(); ++i)
-                q_in_eig(i) = q_in(i);
-            S_k += alpha * N_k * ((q_ub+q_lb)/2.0 - q_in_eig);
-            #if DEBUG>1
-            ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : exiting after enforcing joint limits at task #" << k+1 << " out of " << task_nr_ << " after performing " << 100*sStar << "% of last task");
-            #endif
-            // return some inaccuracy error, but do not fail
-            qdot_out.data = S_k;
-            return E_SNS_NEEDED;
-#endif
-            
             VectorJ a;
             // TODO: check if multiplying by weightW is actually needed
             // pre-multiplication is only to make sure a is zero where W is zero...
