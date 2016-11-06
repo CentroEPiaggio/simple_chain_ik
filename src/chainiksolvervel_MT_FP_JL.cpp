@@ -293,16 +293,18 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
                 JNbar_k = J_k*Nbar_k;
                 pinvDLS(JNbar_k, JNbar_k_pinv);
                 if(sStar == 0.0)
+                {
                     S_k = S_k_old;
+                    // as we break, and potentially update the task-space projector, avoid including the last task
+                    NJ_k.setZero();
+                    NJ_k_pinv.setZero();
+                }
                 else
                     S_k = q_tilde_k + JNbar_k_pinv*(sStar*xi_k - J_k * q_tilde_k);
 #if DEBUG>1
-                ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : exiting after enforcing joint limits at task #" << k+1 << " out of " << task_nr_ << " after performing " << 100*sStar << "% of last task");
+                ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : enforcing joint limits at task #" << k+1 << " out of " << task_nr_ << " after performing " << 100*sStar << "% of last task - continuing with next one...");
 #endif
-                // return some inaccuracy error, but do not fail
-                qdot_out.data = S_k;
-                // TODO: remove the return statement, and continue instead with lower priority tasks (all matrixes have been updated)
-                return E_SNS_NEEDED;
+                break;
             }
             // TODO: remove - debug only
             else
