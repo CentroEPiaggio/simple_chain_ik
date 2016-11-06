@@ -147,6 +147,15 @@ public:
     /// @copydoc KDL::SolverI::strError()
     virtual const char* strError(const int error) const;
     
+    /**
+     * @brief Factor to consider as threshold on model tolerance; if 0.0, no thresholding is applied.
+     * 
+     * @param s New model tolerance; must be positive, or 0.0
+     * 
+     * @return The old model tolerance.
+     */
+    double setModelTolerance(double s = 0.0) {double tmp(model_tolerance_); model_tolerance_ = (s>=0.0)?s:model_tolerance_; return tmp;}
+    
 private:
     /// internal copy of the chain we are solving for
     const Chain chain;

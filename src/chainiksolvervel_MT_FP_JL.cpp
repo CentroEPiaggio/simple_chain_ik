@@ -331,6 +331,13 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
     
     // return q_dot
     qdot_out.data = S_k;
+    
+    // compute max scaling for the full q_dot vector using line-search
+    if(model_tolerance_ > 0.0)
+    {
+        double alpha = computeBestAlphaLineSearch(q_in,v_in,qdot_out,jac_kdl);
+        qdot_out.data = alpha*S_k;
+    }
     return E_NOERROR;
 }
 
@@ -498,14 +505,14 @@ void ChainIkSolverVel_MT_FP_JL::updateVelocityLimits(const VectorJ& q_in)
     q_dot_lb = q_lb - q_in;
     q_dot_ub = q_ub - q_in;
     
-    // TODO: make this come from the outside: set velocity limits (between iterations - avoid too high jumps)
-    for(int i=0; i<JS_dim; ++i)
-    {
-        if(q_dot_lb(i) < -0.2)
-            q_dot_lb(i) = -0.2;
-        if(q_dot_ub(i) > 0.2)
-            q_dot_ub(i) = 0.2;
-    }
+//     // TODO: make this come from the outside: set velocity limits (between iterations - avoid too high jumps)
+//     for(int i=0; i<JS_dim; ++i)
+//     {
+//         if(q_dot_lb(i) < -0.2)
+//             q_dot_lb(i) = -0.2;
+//         if(q_dot_ub(i) > 0.2)
+//             q_dot_ub(i) = 0.2;
+//     }
 }
 
 void ChainIkSolverVel_MT_FP_JL::selectMatrixRows(const VectorTi& task_list_, uint k, const MatrixTJ& jac, MatrixXJ& jac_k) const

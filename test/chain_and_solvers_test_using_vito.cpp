@@ -179,6 +179,8 @@ int main(int argc, char** argv)
     if(!lh_solver.changeIkTaskWeigth(Mx))
         ROS_WARN_STREAM(CLASS_NAMESPACE << " : could not change TS weight as the matrix is not positive (semi-)definite!");
     
+    lh_solver.getIKVelSolver()->setModelTolerance(0.001);
+    
     int changed_limits = 0;
     while(target.p.y() < end_y)
     {
