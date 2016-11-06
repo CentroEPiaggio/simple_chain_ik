@@ -322,6 +322,21 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
             S_k = q_tilde_k + JNbar_k_pinv*(xi_k - J_k * q_tilde_k);
             
             respecting_limits = checkVelocityLimits(q_in.data,S_k);
+            
+            // enforce limits due to W in S_k
+            respecting_limits = true;
+            for(int i=0; i<JS_dim; ++i)
+            {
+                if(weightW(i,i) == 0.0 && to_be_checked_for_limits_(i) == 1.0)
+                {
+                    to_be_checked_for_limits_(i) = 0.0;
+                    if(S_k(i) <= q_dot_lb(i))
+                        S_k(i) = q_dot_lb(i);
+                    else if(S_k(i) >= q_dot_ub(i))
+                        S_k(i) = q_dot_ub(i);
+                }
+                respecting_limits &= (to_be_checked_for_limits_(i) == 0.0);
+            }
         }
         
         // if it's not last task, compute iterative step
