@@ -12,6 +12,8 @@
 #define NC "\033[0m"
 
 KDL::Frame ee_tip = KDL::Frame(KDL::Vector(0.0,0.0,0.2));
+const double model_tolerance(0.001);
+const int pos_ik_max_iter(20);
 
 void initialize_solvers(ChainAndSolvers& container, const urdf::Model& urdf_model)
 {
@@ -34,7 +36,7 @@ void initialize_solvers(ChainAndSolvers& container, const urdf::Model& urdf_mode
         j++;
     }
     
-    if(!container.setSolverParameters(q_min,q_max,20,5e-4,150,1e-5,1e-5) || !container.initSolvers())
+    if(!container.setSolverParameters(q_min,q_max,pos_ik_max_iter,5e-4,150,1e-5,1e-5) || !container.initSolvers())
     {
         std::cout << CLASS_NAMESPACE << __func__ << " : unable to initialize the solvers! Returning..." << std::endl;
         abort();
@@ -179,7 +181,9 @@ int main(int argc, char** argv)
     if(!lh_solver.changeIkTaskWeigth(Mx))
         ROS_WARN_STREAM(CLASS_NAMESPACE << " : could not change TS weight as the matrix is not positive (semi-)definite!");
     
-    lh_solver.getIKVelSolver()->setModelTolerance(0.001);
+    lh_solver.getIKVelSolver()->setModelTolerance(model_tolerance);
+    lh_solver.getIKSolver()->useWeigthEndEffector(true);
+    lh_solver.getIKVelSolver()->useWeigthEndEffector(true);
     
     int changed_limits = 0;
     while(target.p.y() < end_y)
