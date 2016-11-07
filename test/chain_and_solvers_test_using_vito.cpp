@@ -178,12 +178,11 @@ int main(int argc, char** argv)
     computeAndDisplayDifference(target,q_out,lh_solver);
     tsleep.sleep();
     
-    if(!lh_solver.changeIkTaskWeigth(Mx))
+    bool use_ee_weight = true;
+    if(!lh_solver.changeIkTaskWeigth(Mx,use_ee_weight))
         ROS_WARN_STREAM(CLASS_NAMESPACE << " : could not change TS weight as the matrix is not positive (semi-)definite!");
     
     lh_solver.getIKVelSolver()->setModelTolerance(model_tolerance);
-    lh_solver.getIKSolver()->useWeigthEndEffector(true);
-    lh_solver.getIKVelSolver()->useWeigthEndEffector(true);
     
     int changed_limits = 0;
     while(target.p.y() < end_y)
@@ -203,7 +202,7 @@ int main(int argc, char** argv)
                 // ATTENTION: this is the task expressed in "global" frame, so x- and y-rotations in world
                 Mx(3,0) = 0.0;
                 Mx(4,0) = 0.0;
-                lh_solver.changeIkTaskWeigth(Mx);
+                lh_solver.changeIkTaskWeigth(Mx,use_ee_weight);
                 target.p.y( target.p.y() - 0.025 );
                 char y;
                 std::cin >> y;

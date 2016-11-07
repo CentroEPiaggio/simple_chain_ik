@@ -105,12 +105,13 @@ public:
      * @brief Change the weight of the task for computing inverse kinematics, i.e. how each direction is weighted in terms of the error: default to Identity. A weight of zero on a direction means it is not considered (the error can be very large), while a higher value means the task is weighted more along that direction.
      * 
      * @param Wx task space weights: will be used as diagonal of a symetric matrix, (semi-)positive definite
+     * @param use_ee_weight specify whether to use the weight in world coordinates (default - false) or end-effector coordinates (true)
      * 
      * @return true on success
-     * @see KDL::ChainIkSolverVel_wdls::setWeightTS for further information
-     * @see KDL::ChainIkSolverPos_relaxed::setTaskWeight for further information
+     * @see ChainAndSolversTypes::ChainIkSolverVel::setWeightTS for further information
+     * @see ChainAndSolversTypes::ChainIkSolverPos::setTaskWeight for further information
      */
-    bool changeIkTaskWeigth(const Eigen::Matrix<double,6,1>& Wx_);
+    bool changeIkTaskWeigth(const Eigen::Matrix<double,6,1>& Wx_, const bool use_ee_weight = false);
     
 private:
     

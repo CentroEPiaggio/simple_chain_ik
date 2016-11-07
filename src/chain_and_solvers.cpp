@@ -281,7 +281,7 @@ void ChainAndSolvers::changeTip(const KDL::Frame& ee_tip_)
     ee_tip = ee_tip_;
 }
 
-bool ChainAndSolvers::changeIkTaskWeigth(const Eigen::Matrix<double,6,1>& Wx_)
+bool ChainAndSolvers::changeIkTaskWeigth(const Eigen::Matrix< double, 6, 1 >& Wx_, const bool use_ee_weight)
 {
     Wx = Wx_;
     Mx = Wx_.asDiagonal();
@@ -289,6 +289,8 @@ bool ChainAndSolvers::changeIkTaskWeigth(const Eigen::Matrix<double,6,1>& Wx_)
     {
 #if USING_CUSTOM_SOLVERS>0
         iksolver->setTaskWeight(Wx);
+        iksolver->useWeigthEndEffector(use_ee_weight);
+        ikvelsolver->useWeigthEndEffector(use_ee_weight);
 #endif
         return (ikvelsolver->setWeightTS(Mx) == KDL::SolverI::E_NOERROR);
     }
