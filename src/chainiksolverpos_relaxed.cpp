@@ -55,7 +55,14 @@ int ChainIkSolverPos_relaxed::CartToJnt(const JntArray& q_init, const Frame& p_i
         delta_twist = diff(f,p_in);
         
         /// apply weighting to the task for checking the completion
-        delta_twist_chk = delta_twist;
+        if(use_ee_task_)
+        {
+            delta_twist_chk = p_in.M.Inverse()*delta_twist;
+        }
+        else
+        {
+            delta_twist_chk = delta_twist;
+        }
         for(int j=0; j<6; ++j)
             delta_twist_chk[j] *= W(j);
         

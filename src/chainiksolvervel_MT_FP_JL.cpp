@@ -142,13 +142,23 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
         return error;
     }
     
+    KDL::Twist v_ref(v_in);
+    // check whether a change of frame is needed, and in such case perform it
+    if(use_ee_task_)
+    {
+        KDL::Frame F;
+        fksolver.JntToCart(q_in,F);
+        v_ref = F.M.Inverse() * v_in;
+        jac_kdl.changeBase(F.M.Inverse());
+    }
+    
     // initializations
     S_k_old.setZero();
     S_k.setZero();
     N_k.setIdentity();
     jac = jac_kdl.data;
     for(int i=0; i<TS_dim; ++i)
-        xi(i) = v_in(i);
+        xi(i) = v_ref(i);
     updateVelocityLimits(q_in.data);
     
     // count the number of iterations we are using here
@@ -594,6 +604,8 @@ double ChainIkSolverVel_MT_FP_JL::computeBestAlphaLineSearch(const KDL::JntArray
     KDL::Twist delta_p;
     for(int j=0; j<TS_dim; ++j)
         delta_p[j] = vec_p(j);
+    if(use_ee_task_)
+        delta_p = p.M*delta_p;
     
     double alpha = 1.0;
     double alpha_prev_low = 0.0;
@@ -613,6 +625,11 @@ double ChainIkSolverVel_MT_FP_JL::computeBestAlphaLineSearch(const KDL::JntArray
         
         // take the difference, compute the norm, check for tolerance reached
         diff_t = KDL::diff(p_alpha,p_alpha_lin);
+        
+        // consider if we are weighting in end-effector frame
+        if(use_ee_task_)
+            diff_t = p.M.Inverse()*diff_t;
+        
         for(int j=0; j<TS_dim; ++j)
             diff_t[j] *= weightTS(j,j);
         if(Equal(diff_t,Twist::Zero(),model_tolerance_))
