@@ -643,9 +643,13 @@ double ChainIkSolverVel_MT_FP_JL::computeBestAlphaLineSearch(const KDL::JntArray
         alpha = (alpha_prev_high + alpha_prev_low)/2.0;
     }
     
+#if DEBUG>1
     std::cout << CLASS_NAMESPACE << __func__ << " : scaling the task (if alpha is 1.0 > 1 iteration, else always max iterations) > alpha=" << alpha << std::endl;
+#endif
+#if DEBUG>2
     char y;
     std::cin >> y;
+#endif
     
     return alpha;
 }
