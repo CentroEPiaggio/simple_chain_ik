@@ -156,6 +156,15 @@ public:
      */
     double setModelTolerance(double s = 0.0) {double tmp(model_tolerance_); model_tolerance_ = (s>=0.0)?s:model_tolerance_; return tmp;}
     
+    /**
+     * @brief Decide whether to use the task weight as expressed in world-frame (default) or End-effector frame.
+     * 
+     * @param s false to use tolerances in world frame, true to use tolerances in end-effector frame
+     * 
+     * @return The old value for this flag.
+     */
+    bool useWeigthEndEffector(bool s = false) {bool tmp(use_ee_task_); use_ee_task_ = s; return tmp;}
+    
 private:
     /// internal copy of the chain we are solving for
     const Chain chain;
@@ -221,6 +230,8 @@ private:
     // tolerance to apply on the model in order to scale the full q_dot vector
     // if 0.0, no scaling is applied
     double model_tolerance_;
+    // flag to say whether using end-effector or world-frame task - for this to work properly, the fksolver needs to be instanciated.
+    bool use_ee_task_;
     
 private:
     /**

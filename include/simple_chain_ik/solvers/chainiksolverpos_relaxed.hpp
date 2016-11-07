@@ -98,6 +98,15 @@ public:
     /// @copydoc KDL::SolverI::strError()
     const char* strError(const int error) const;
     
+    /**
+     * @brief Decide whether to use the task weight as expressed in world-frame (default) or End-effector frame.
+     * 
+     * @param s false to use tolerances in world frame, true to use tolerances in end-effector frame
+     * 
+     * @return The old value for this flag.
+     */
+    bool useWeigthEndEffector(bool s = false) {bool tmp(use_ee_task_); use_ee_task_ = s; return tmp;}
+    
 private:
     const Chain chain;
     /// number of joints
@@ -120,6 +129,8 @@ private:
     Frame f;
     Twist delta_twist;
     
+    // flag to say whether using end-effector or world-frame task - for this to work properly, the fksolver needs to be instanciated.
+    bool use_ee_task_;
 };
 
 }

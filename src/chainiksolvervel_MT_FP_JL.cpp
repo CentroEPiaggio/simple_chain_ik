@@ -47,7 +47,8 @@ ChainIkSolverVel_MT_FP_JL::ChainIkSolverVel_MT_FP_JL(const Chain& chain, double 
     S_k(VectorJ::Zero()),
     N_k(MatrixJ::Identity()),
     xi(VectorT::Zero()),
-    model_tolerance_(0.0)
+    model_tolerance_(0.0),
+    use_ee_task_(false)
 {
     assert(nj == chain.getNrOfJoints());
 }

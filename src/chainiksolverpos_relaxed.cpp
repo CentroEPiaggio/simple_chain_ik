@@ -28,11 +28,11 @@
 
 using namespace KDL;
 
-ChainIkSolverPos_relaxed::ChainIkSolverPos_relaxed(const Chain& chain, const JntArray& q_min, const JntArray& q_max, ChainFkSolverPos& fksolver, ChainIkSolverVel& iksolver, unsigned int maxiter, double eps) : chain(chain), nj(chain.getNrOfJoints()), q_min(q_min), q_max(q_max), iksolver(iksolver), fksolver(fksolver), delta_q(chain.getNrOfJoints()), maxiter(maxiter), eps(eps), W(Eigen::MatrixXd::Ones(W.RowsAtCompileTime,W.ColsAtCompileTime))
+ChainIkSolverPos_relaxed::ChainIkSolverPos_relaxed(const Chain& chain, const JntArray& q_min, const JntArray& q_max, ChainFkSolverPos& fksolver, ChainIkSolverVel& iksolver, unsigned int maxiter, double eps) : chain(chain), nj(chain.getNrOfJoints()), q_min(q_min), q_max(q_max), iksolver(iksolver), fksolver(fksolver), delta_q(chain.getNrOfJoints()), maxiter(maxiter), eps(eps), W(Eigen::MatrixXd::Ones(W.RowsAtCompileTime,W.ColsAtCompileTime)), use_ee_task_(false)
 {
 }
 
-ChainIkSolverPos_relaxed::ChainIkSolverPos_relaxed(const Chain& chain, ChainFkSolverPos& fksolver, ChainIkSolverVel& iksolver, unsigned int maxiter, double eps) : chain(chain), nj(chain.getNrOfJoints()), q_min(nj), q_max(nj), iksolver(iksolver), fksolver(fksolver), delta_q(chain.getNrOfJoints()), maxiter(maxiter), eps(eps), W(Eigen::MatrixXd::Ones(W.RowsAtCompileTime,W.ColsAtCompileTime))
+ChainIkSolverPos_relaxed::ChainIkSolverPos_relaxed(const Chain& chain, ChainFkSolverPos& fksolver, ChainIkSolverVel& iksolver, unsigned int maxiter, double eps) : chain(chain), nj(chain.getNrOfJoints()), q_min(nj), q_max(nj), iksolver(iksolver), fksolver(fksolver), delta_q(chain.getNrOfJoints()), maxiter(maxiter), eps(eps), W(Eigen::MatrixXd::Ones(W.RowsAtCompileTime,W.ColsAtCompileTime)), use_ee_task_(false)
 {
     q_min.data.setConstant(std::numeric_limits<double>::min());
     q_max.data.setConstant(std::numeric_limits<double>::max());
