@@ -26,6 +26,8 @@
 #include <kdl/frames_io.hpp>
 #include <math.h>
 
+#define DEBUG 0
+
 using namespace KDL;
 
 ChainIkSolverPos_relaxed::ChainIkSolverPos_relaxed(const Chain& chain, const JntArray& q_min, const JntArray& q_max, ChainFkSolverPos& fksolver, ChainIkSolverVel& iksolver, unsigned int maxiter, double eps) : chain(chain), nj(chain.getNrOfJoints()), q_min(q_min), q_max(q_max), iksolver(iksolver), fksolver(fksolver), delta_q(chain.getNrOfJoints()), maxiter(maxiter), eps(eps), W(Eigen::MatrixXd::Ones(W.RowsAtCompileTime,W.ColsAtCompileTime)), use_ee_task_(false)
@@ -66,10 +68,12 @@ int ChainIkSolverPos_relaxed::CartToJnt(const JntArray& q_init, const Frame& p_i
         for(int j=0; j<6; ++j)
             delta_twist_chk[j] *= W(j);
         
+#if DEBUG>1
         std::cout << "delta_twist = " << delta_twist << std::endl;
         std::cout << "|delta_twist| = " << sqrt(delta_twist.rot.Norm()*delta_twist.rot.Norm() + delta_twist.vel.Norm()*delta_twist.vel.Norm()) << std::endl;
         std::cout << "delta_twist_chk = " << delta_twist_chk << std::endl;
         std::cout << "|delta_twist_chk| = " << sqrt(delta_twist_chk.rot.Norm()*delta_twist_chk.rot.Norm() + delta_twist_chk.vel.Norm()*delta_twist_chk.vel.Norm()) << std::endl;
+#endif
         
         if(Equal(delta_twist_chk,Twist::Zero(),eps))
             break;
@@ -78,17 +82,23 @@ int ChainIkSolverPos_relaxed::CartToJnt(const JntArray& q_init, const Frame& p_i
         KDL::SetToZero(delta_q);
         if ( (err=iksolver.CartToJnt(q_out,delta_twist,delta_q)) < 0)
         {
+#if DEBUG>1
             std::cout << "Error #" << err << std::endl;
+#endif
             return (error = E_IKSOLVERVEL_FAILED);
         }
         JntArray tmp();
+#if DEBUG>1
         std::cout << "IKpos Solver delta_q = [" << delta_q.data.transpose() << "]" << std::endl;
+#endif
 //         assert(!delta_q.data.isNaN());
         for(int i=0; i<delta_q.rows(); ++i)
             assert(!std::isnan(delta_q.data(i)));
         if(Equal(delta_q,JntArray(7),1e-15))
         {
+#if DEBUG>1
             std::cout << __func__ << " : exiting in cycle #" << i << " (out of " << maxiter << ") because |q_dot|<1e-15 - error on pose = " << delta_twist << std::endl;
+#endif
             return (error = E_NO_CONVERGE);
         }
         
