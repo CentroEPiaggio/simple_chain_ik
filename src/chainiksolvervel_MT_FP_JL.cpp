@@ -12,7 +12,7 @@
 #define E_SIZE_MISMATCH -4
 #define E_SVD_FAILED -8
 
-#define DEBUG 0
+#define DEBUG 3
 #define CLASS_NAMESPACE "ChainIkSolverVel_MT_FP_JL::"
 
 // value used when checking for a value to be zero: the smaller the lambda, the higher this should be

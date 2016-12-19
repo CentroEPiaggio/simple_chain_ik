@@ -26,7 +26,7 @@
 #include <kdl/frames_io.hpp>
 #include <math.h>
 
-#define DEBUG 0
+#define DEBUG 2
 
 using namespace KDL;
 
