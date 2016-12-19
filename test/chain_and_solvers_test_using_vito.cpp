@@ -12,7 +12,7 @@
 #define NC "\033[0m"
 
 KDL::Frame ee_tip = KDL::Frame(KDL::Vector(0.0,0.0,0.2));
-const double model_tolerance(0.001);
+const double model_tolerance(0.00/*1*/);
 const int pos_ik_max_iter(20);
 
 void initialize_solvers(ChainAndSolvers& container, const urdf::Model& urdf_model)
