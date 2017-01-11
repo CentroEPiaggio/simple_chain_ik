@@ -294,6 +294,18 @@ private:
      * @return The best alpha parameter found, based on a tolerance on the model
      */
     double computeBestAlphaLineSearch(const KDL::JntArray& q, const KDL::Twist& xi, const KDL::JntArray& q_dot, const KDL::Jacobian& jac);
+    
+    /**
+     * @brief Use line-search to extract the best scaling factor to give the output alpha*S_k for task k, not changing the task till k-1 (already scaled)
+     * 
+     * @param q q_0 + q_dot_(k-1), initial pose and values already computed for all tasks up to (k-1)-th task
+     * @param q_dot q_dot_k, the last computed part, which solves the k-th task only (difference between k-th task and effect on k-th task of the solution to all (1..k-1)-th tasks
+     * @param jac the (full) jacobian
+     * @param k the task number (will be used to select the components of the k-th task only)
+     * 
+     * @return The best alpha parameter found, based on a tolerance on the model
+     */
+    double computeAlphaSingleTask(const KDL::JntArray& q, const KDL::JntArray& q_dot, const KDL::Jacobian& jac, uint k);
 };
 
 /// required forward declaration of template class for it to be instanciated in the library

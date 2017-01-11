@@ -661,3 +661,111 @@ double ChainIkSolverVel_MT_FP_JL::computeBestAlphaLineSearch(const KDL::JntArray
     
     return alpha;
 }
+
+double ChainIkSolverVel_MT_FP_JL::computeAlphaSingleTask(const JntArray& q, const JntArray& q_dot, const Jacobian& jac, uint k)
+{
+    // compute originally desired pose and beginning pose
+    KDL::Frame p;
+    fksolver.JntToCart(q,p);
+    // compute twist due to q_dot
+    VectorT vec_p = jac.data*q_dot.data;
+    KDL::Twist delta_p;
+    for(int j=0; j<ts_dim; ++j)
+        delta_p[j] = vec_p(j);
+    if(use_ee_task_)
+        delta_p = p.M*delta_p;
+    
+    double alpha = 1.0;
+    double alpha_prev_low = 0.0;
+    double alpha_prev_high = 1.0;
+    KDL::JntArray q_a(nj);
+    KDL::Frame p_alpha,p_alpha_lin;
+    KDL::Twist diff_t;
+    
+    // TEST try using difference in model tolerance, and a threshold on it as well
+    double tolerance_model_tolerance = 0.05 * model_tolerance_;
+    // model error at previous steps
+    double eps_low = 0.0;
+    double eps_high = 1.0 + 2*tolerance_model_tolerance;
+    
+    int counter = 0;
+    double norm_diff_t_debug = 0.0;
+    double norm_diff_t = 0.0;
+//     while(alpha_prev_high - alpha_prev_low > 0.125) // i.e. either 1 or 4 steps
+    while(eps_high - eps_low > 2*tolerance_model_tolerance)
+    {
+        ++counter;
+        // compute REAL pose at alpha distance from q, in the direction of q_dot
+        q_a.data = q.data + (q_dot.data * alpha);
+        fksolver.JntToCart(q_a,p_alpha);
+        
+        // compute LINEAR pose at alpha distance from q, in the direction of q_dot
+        p_alpha_lin = KDL::addDelta(p,delta_p,alpha);
+        
+        // take the difference, compute the norm, check for tolerance reached
+        diff_t = KDL::diff(p_alpha,p_alpha_lin);
+        
+        // consider if we are weighting in end-effector frame
+        if(use_ee_task_)
+            diff_t = p.M.Inverse()*diff_t;
+        
+        norm_diff_t_debug = 0.0;
+        norm_diff_t = 0.0;
+        for(int j=0; j<ts_dim; ++j)
+        {
+            diff_t[j] *= weightTS(j,j);
+            // inf-norm
+            norm_diff_t_debug = std::max(norm_diff_t_debug, std::abs(diff_t[j]));
+            if(task_list_[j] != k)
+                continue;
+//             // 2-norm
+//             norm_diff_t += diff_t[j]*diff_t[j];
+            // inf-norm
+            norm_diff_t = std::max(norm_diff_t, std::abs(diff_t[j]));
+        }
+//         norm_diff_t = std::sqrt(norm_diff_t);
+        
+        // case 0: it's the first time I enter the loop, and I'm ok with the tolerance (more than tolerance_model_tolerance ok!)
+        if(alpha == 1.0 && norm_diff_t < model_tolerance_)
+        {
+            #if DEBUG>1
+            std::cout << CLASS_NAMESPACE << __func__ << " : norm_diff_t (" << norm_diff_t << ") < model_tolerance_ (" << model_tolerance_ << ")" << std::endl;
+            std::cout << CLASS_NAMESPACE << __func__ << " : Equal(diff_t,Twist::Zero(),model_tolerance_) is " << (Equal(diff_t,Twist::Zero(),model_tolerance_)?"TRUE":"FALSE") << std::endl;
+            #endif
+            break;
+        }
+        // case 1: I'm close enough to model tolerance (e.g., +-5%) - return the current value!
+        else if( std::abs(norm_diff_t - model_tolerance_) < tolerance_model_tolerance)
+        {
+            break;
+        }
+        // case 2: I'm below tolerance, move up the lower bounds
+        else if( norm_diff_t < model_tolerance_ )
+        {
+            // NOTE: I should never enter here at 1st attempt, exited in case 0
+            alpha_prev_low = alpha;
+            eps_low = norm_diff_t;
+        }
+        // case 3: I'm above tolerance, move down the upper bounds
+        else
+        {
+            alpha_prev_high = alpha;
+            eps_high = norm_diff_t;
+        }
+        alpha = (alpha_prev_high - alpha_prev_low)/(eps_high - eps_low)*(model_tolerance_ - eps_low) + alpha_prev_low;
+        // alpha = (alpha_prev_high + alpha_prev_low)/2.0;
+        
+    }
+    
+    #if DEBUG>1
+    std::cout << CLASS_NAMESPACE << __func__ << " : task #" << k << "/" << task_nr_ << " | exiting after #" << counter << " cycles, alpha=" << alpha << " | norm_diff_t=" << norm_diff_t << " | norm_diff_t_debug=" << norm_diff_t_debug << std::endl;
+    #endif
+    #if DEBUG>2
+    char y;
+    std::cin >> y;
+    if( y == 'q' )
+        exit(-1);
+    #endif
+    
+    return alpha;
+}
