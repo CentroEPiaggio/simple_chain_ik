@@ -24,6 +24,8 @@
 #define SCALE_PREVIOUS_TASK_CONTRIBUTION 0
 // the actual dimension of the task; this could be given in the constructor from outside, given the result of the joint to jacobian solver, or else
 #define TS_actual_dim 6
+// choose whether to compute the alpha scaling factor for the whole solution, or for each task separately
+#define ALPHA_SCALE_SINGLE_TASKS 1
 
 using namespace KDL;
 
@@ -344,17 +346,31 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
         
         // if it's not last task, compute iterative step
         N_k -= NJ_k_pinv*NJ_k;
+        
+#if ALPHA_SCALE_SINGLE_TASKS != 0
+        // compute alpha for the k-th task
+        if(model_tolerance_ > 0.0)
+        {
+            KDL::JntArray q_k_prev(q_in), q_tmp(nj);
+            q_k_prev.data += S_k_old;
+            q_tmp.data = S_k - S_k_old;
+            double alpha = computeAlphaSingleTask(q_k_prev,q_tmp,jac_kdl,k+1);
+            S_k = S_k_old + alpha*q_tmp.data;
+        }
+#endif
     }
     
     // return q_dot
     qdot_out.data = S_k;
     
+#if ALPHA_SCALE_SINGLE_TASKS == 0
     // compute max scaling for the full q_dot vector using line-search
     if(model_tolerance_ > 0.0)
     {
         double alpha = computeBestAlphaLineSearch(q_in,v_in,qdot_out,jac_kdl);
         qdot_out.data = alpha*S_k;
     }
+#endif
     return E_NOERROR;
 }
 
