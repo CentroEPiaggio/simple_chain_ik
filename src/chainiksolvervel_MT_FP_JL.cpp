@@ -29,31 +29,32 @@ ChainIkSolverVel_MT_FP_JL::ChainIkSolverVel_MT_FP_JL(const Chain& chain, double 
     chain(chain),
     eps(eps),
     maxiter(maxiter),
-    nj(JS_dim),
+    nj(chain.getNrOfJoints()),
     jac_kdl(nj),
     ts_dim(TS_dim),
     fksolver(chain),
     jnt2jac(chain),
-    jac(MatrixTJ::Zero()),
-    weightTS(MatrixT::Identity()),
-    weightW(MatrixJ::Identity()),
-    weightJS(MatrixJ::Identity()),
     lambda(0.0),
-    q_dot_lb(VectorJ::Ones()*(-1.0*std::numeric_limits<double>::max())),
-    q_dot_ub(VectorJ::Ones()*std::numeric_limits<double>::max()),
     is_jac_weighted(false),
-    task_list_(VectorTi::Ones()),
-    to_be_checked_for_limits_(VectorJ::Zero()),
-    q_lb(VectorJ::Ones()*(-1.0*std::numeric_limits<double>::max())),
-    q_ub(VectorJ::Ones()*std::numeric_limits<double>::max()),
-    S_k_old(VectorJ::Zero()),
-    S_k(VectorJ::Zero()),
-    N_k(MatrixJ::Identity()),
-    xi(VectorT::Zero()),
     model_tolerance_(0.0),
     use_ee_task_(false)
 {
     assert(nj == chain.getNrOfJoints());
+    
+    jac = MatrixTJ::Zero(ts_dim,nj);
+    weightTS = MatrixT::Identity(ts_dim,ts_dim);
+    weightW = MatrixJ::Identity(nj,nj);
+    weightJS = MatrixJ::Identity(nj,nj);
+    q_dot_lb = VectorJ::Ones(nj,1)*(-1.0*std::numeric_limits<double>::max());
+    q_dot_ub = VectorJ::Ones(nj,1)*std::numeric_limits<double>::max();
+    task_list_ = VectorTi::Ones(ts_dim,1);
+    to_be_checked_for_limits_ = VectorJ::Zero(nj,1);
+    q_lb = VectorJ::Ones(nj,1)*(-1.0*std::numeric_limits<double>::max());
+    q_ub = VectorJ::Ones(nj,1)*std::numeric_limits<double>::max();
+    S_k_old = VectorJ::Zero(nj,1);
+    S_k = VectorJ::Zero(nj,1);
+    N_k = MatrixJ::Identity(nj,nj);
+    xi = VectorT::Zero(ts_dim,1);
 }
 
 void ChainIkSolverVel_MT_FP_JL::setJointLimits(const VectorJ& lower_bound, const VectorJ& upper_bound)
@@ -71,7 +72,7 @@ int ChainIkSolverVel_MT_FP_JL::setWeightJS(const MatrixJ& Mq)
 //     assert(Mq.rows() == nj);
 //     assert(Mq.cols() == nj);
     
-    if( Mq == MatrixJ::Identity() )
+    if( Mq == MatrixJ::Identity(nj,nj) )
     {
         is_jac_weighted = false;
         return 0;
@@ -91,7 +92,7 @@ int ChainIkSolverVel_MT_FP_JL::setWeightTS(const MatrixT& weights)
     double w(1.0),last_w(0.0);
     uint task_nr(0);
     task_list_.setZero();
-    Eigen::Matrix<double,TS_dim,1> Mx(weights.diagonal());
+    VectorT Mx(weights.diagonal());
     
     // find current most-important task weight
     w = Mx.maxCoeff();
@@ -105,10 +106,10 @@ int ChainIkSolverVel_MT_FP_JL::setWeightTS(const MatrixT& weights)
     {
         // task_list will have 1's in 1st task elements, 2's in 2nd task elements...
         task_nr++;
-        task_list_ = (Mx.array() == w).select(VectorTi::Ones()*task_nr,task_list_);
+        task_list_ = (Mx.array() == w).select(VectorTi::Ones(ts_dim,1)*task_nr,task_list_);
         
         // adjust weights for a new cycle
-        Mx = (Mx.array() == w).select(Eigen::Matrix<double,TS_dim,1>::Zero(),Mx);
+        Mx = (Mx.array() == w).select(VectorT::Zero(ts_dim,1),Mx);
         
         // find current most-important task weight
         w = Mx.maxCoeff();
@@ -160,7 +161,7 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
     S_k.setZero();
     N_k.setIdentity();
     jac = jac_kdl.data;
-    for(int i=0; i<TS_dim; ++i)
+    for(int i=0; i<ts_dim; ++i)
         xi(i) = v_ref(i);
     updateVelocityLimits(q_in.data);
     
@@ -185,7 +186,7 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
         selectMatrixRows(task_list_,k+1,xi,xi_k);
         
         // comupute null-projected jacobian and its Pseudo-Inverse
-        NJ_k.resize(J_k.rows(),NJ_k.ColsAtCompileTime);
+        NJ_k.resize(J_k.rows(),NJ_k.cols());
         NJ_k.noalias() = J_k * N_k;
         pinvDLS(NJ_k,NJ_k_pinv);
         
@@ -205,11 +206,9 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
         double sStar = 0.0;
         // Null-projected jacobian considering also saturations
         MatrixJ Nbar_k = N_k;
-        // Null-projected jacobian for projectin saturations in the previous (k-1) task null-spaces
-        MatrixJ Ntilde_k;
         // velocity vector to saturate, used in internal loop
         VectorJ qN; // = S_k_old;
-        qN.setZero();
+        qN.setZero(nj,1);
         // saturated velocities in the best task scaling scenario
         VectorJ qNstar = qN;
         // weight matrix in the best task scaling scenario
@@ -230,7 +229,7 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
         // enforce limits - if failed, don't go on with tasks
         while(!respecting_limits)
         {
-            VectorJ a;
+            VectorJ a; a.resize(nj,1);
 #if (SCALE_PREVIOUS_TASK_CONTRIBUTION > 0)
             {
                 pinvDLS((MatrixJ::Identity() - weightW)*N_k,IWN_k_pinv);
@@ -285,14 +284,14 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
             std::cout << "qN = [" << qN.transpose() << "]" << std::endl;
 #endif
             
-            pinvDLS((MatrixJ::Identity() - weightW)*N_k,IWN_k_pinv);
+            pinvDLS((MatrixJ::Identity(nj,nj) - weightW)*N_k,IWN_k_pinv);
             Nbar_k = N_k - IWN_k_pinv*N_k;
             JNbar_k = J_k*Nbar_k;
             
             // the task went out of scope of the jacobian (deficient rank): scale it and exit the k-th task cycle
             if( (JNbar_k).colPivHouseholderQr().rank() < xi_k.rows() )
             {
-                pinvDLS((MatrixJ::Identity() - weightWstar)*N_k,IWN_k_pinv);
+                pinvDLS((MatrixJ::Identity(nj,nj) - weightWstar)*N_k,IWN_k_pinv);
                 VectorJ q_tilde_k = S_k_old + IWN_k_pinv*qNstar;
                 // enforce limits on q_tilde_k
                 enforceWLimits(q_tilde_k);
@@ -358,7 +357,7 @@ int ChainIkSolverVel_MT_FP_JL::CartToJnt(const JntArray& q_in, const Twist& v_in
 int ChainIkSolverVel_MT_FP_JL::pinvDLS(const MatrixXJ& NJ_k, MatrixJX& NJ_k_pinv)
 {
     MatrixXJ weigthedJ;
-    weigthedJ.resize(NJ_k.rows(),weigthedJ.ColsAtCompileTime);
+    weigthedJ.resize(NJ_k.rows(),weigthedJ.cols());
     if(is_jac_weighted)
         weigthedJ.noalias() = NJ_k * weightJS;
     else
@@ -387,7 +386,7 @@ int ChainIkSolverVel_MT_FP_JL::pinvDLS(const MatrixXJ& NJ_k, MatrixJX& NJ_k_pinv
     }
     
     // resize the output matrix and compute the Pinv
-    NJ_k_pinv.resize(JS_dim,sigma.rows());
+    NJ_k_pinv.resize(nj,sigma.rows());
     NJ_k_pinv.noalias() = svd.matrixV() * sigma.asDiagonal() * svd.matrixU().transpose();
     
 #if DEBUG>1
@@ -410,7 +409,7 @@ bool ChainIkSolverVel_MT_FP_JL::checkVelocityLimits(const VectorJ& q_in, const V
     maxl = (q_dot_lb - q_dot_k).maxCoeff(&rl,&cl);
     
     to_be_checked_for_limits_.setZero();
-    for(int i=0; i<JS_dim; ++i)
+    for(int i=0; i<nj; ++i)
     {
         if((q_dot_k(i) - q_dot_ub(i) > QDOT_ZERO) || (q_dot_lb(i) - q_dot_k(i) > QDOT_ZERO))
             to_be_checked_for_limits_(i) = 1.0;
@@ -450,8 +449,10 @@ double ChainIkSolverVel_MT_FP_JL::computeMaxScaling(const VectorJ& a, const Vect
 #endif
     
     VectorJ sMin, sMax;
+    sMin.resize(nj,1);
+    sMax.resize(nj,1);
     // the use of a for cycle is maybe the best thing here...
-    for(int i = 0; i<JS_dim; ++i)
+    for(int i = 0; i<nj; ++i)
     {
         // if(weightW.diagonal()(i) == 0.0 || to_be_checked_for_limits_(i) == 0.0)
         if(weightW.diagonal()(i) == 0.0)
@@ -520,7 +521,7 @@ void ChainIkSolverVel_MT_FP_JL::updateVelocityLimits(const VectorJ& q_in)
     q_dot_ub = q_ub - q_in;
     
 //     // TODO: make this come from the outside: set velocity limits (between iterations - avoid too high jumps)
-//     for(int i=0; i<JS_dim; ++i)
+//     for(int i=0; i<nj; ++i)
 //     {
 //         if(q_dot_lb(i) < -0.2)
 //             q_dot_lb(i) = -0.2;
@@ -531,15 +532,15 @@ void ChainIkSolverVel_MT_FP_JL::updateVelocityLimits(const VectorJ& q_in)
 
 void ChainIkSolverVel_MT_FP_JL::selectMatrixRows(const VectorTi& task_list_, uint k, const MatrixTJ& jac, MatrixXJ& jac_k) const
 {
-    VectorTi indexer = (task_list_.array() == k).select(VectorTi::Ones(),VectorTi::Zero());
+    VectorTi indexer = (task_list_.array() == k).select(VectorTi::Ones(ts_dim,1),VectorTi::Zero(ts_dim,1));
     uint task_dim = indexer.sum();
 #if DEBUG > 3
     std::cout << CLASS_NAMESPACE << __func__ << " : task #" << k << " | indexer = [" << indexer.transpose() << "] | task_dim = " << task_dim << std::endl;
 #endif
-    jac_k.resize(task_dim,JS_dim);
+    jac_k.resize(task_dim,nj);
     uint jac_row = 0;
     
-    for(int i=0; i<TS_dim; ++i)
+    for(int i=0; i<ts_dim; ++i)
     {
         if(indexer(i))
             jac_k.row(jac_row++) = jac.row(i);
@@ -553,7 +554,7 @@ void ChainIkSolverVel_MT_FP_JL::selectMatrixRows(const VectorTi& task_list_, uin
 
 void ChainIkSolverVel_MT_FP_JL::selectMatrixRows(const VectorTi& task_list_, uint k, const VectorT& xi, VectorX& xi_k) const
 {
-    VectorTi indexer = (task_list_.array() == k).select(VectorTi::Ones(),VectorTi::Zero());
+    VectorTi indexer = (task_list_.array() == k).select(VectorTi::Ones(ts_dim,1),VectorTi::Zero(ts_dim,1));
     uint task_dim = indexer.sum();
 #if DEBUG > 2
     std::cout << CLASS_NAMESPACE << __func__ << " : task #" << k << " | indexer = [" << indexer.transpose() << "] | task_dim = " << task_dim << std::endl;
@@ -561,7 +562,7 @@ void ChainIkSolverVel_MT_FP_JL::selectMatrixRows(const VectorTi& task_list_, uin
     xi_k.resize(task_dim,1);
     uint xi_row = 0;
     
-    for(int i=0; i<TS_dim; ++i)
+    for(int i=0; i<ts_dim; ++i)
     {
         if(indexer(i))
             xi_k(xi_row++) = xi(i);
@@ -577,7 +578,7 @@ bool ChainIkSolverVel_MT_FP_JL::enforceWLimits(VectorJ& q_dot)
 {
     // enforce limits due to W in S_k
     bool respecting_limits = true;
-    for(int i=0; i<JS_dim; ++i)
+    for(int i=0; i<nj; ++i)
     {
         if(weightW(i,i) == 0.0)
         {
@@ -605,7 +606,7 @@ double ChainIkSolverVel_MT_FP_JL::computeBestAlphaLineSearch(const KDL::JntArray
     // compute twist due to q_dot
     VectorT vec_p = jac.data*q_dot.data;
     KDL::Twist delta_p;
-    for(int j=0; j<TS_dim; ++j)
+    for(int j=0; j<ts_dim; ++j)
         delta_p[j] = vec_p(j);
     if(use_ee_task_)
         delta_p = p.M*delta_p;
@@ -613,7 +614,7 @@ double ChainIkSolverVel_MT_FP_JL::computeBestAlphaLineSearch(const KDL::JntArray
     double alpha = 1.0;
     double alpha_prev_low = 0.0;
     double alpha_prev_high = 1.0;
-    KDL::JntArray q_a(JS_dim);
+    KDL::JntArray q_a(nj);
     KDL::Frame p_alpha,p_alpha_lin;
     KDL::Twist diff_t;
     
@@ -633,7 +634,7 @@ double ChainIkSolverVel_MT_FP_JL::computeBestAlphaLineSearch(const KDL::JntArray
         if(use_ee_task_)
             diff_t = p.M.Inverse()*diff_t;
         
-        for(int j=0; j<TS_dim; ++j)
+        for(int j=0; j<ts_dim; ++j)
             diff_t[j] *= weightTS(j,j);
         if(Equal(diff_t,Twist::Zero(),model_tolerance_))
         {
