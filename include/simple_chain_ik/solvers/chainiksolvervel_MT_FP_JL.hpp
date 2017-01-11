@@ -10,6 +10,8 @@
 #include "kdl/frames.hpp"
 #include <Eigen/Dense>
 
+#define KDL_CHAIN_IKSOLVERVEL_MT_FP_JL_FIXED_DIM 0
+
 namespace KDL
 {
 
@@ -27,8 +29,13 @@ namespace KDL
     * 2) Buss, Kim (2004)
     */
 
+#if KDL_CHAIN_IKSOLVERVEL_MT_FP_JL_FIXED_DIM > 0
 static const int TS_dim = 6;
 static const int JS_dim = 7;
+#else
+static const int TS_dim = -1;
+static const int JS_dim = -1;
+#endif
 
 typedef Eigen::Matrix<double,TS_dim,TS_dim> MatrixT;
 typedef Eigen::Matrix<double,JS_dim,JS_dim> MatrixJ;

@@ -22,6 +22,8 @@
 #define S_margin 0.0
 // choose whether to scale only the task or also the contribution to the last task given by the previous (k-1) tasks
 #define SCALE_PREVIOUS_TASK_CONTRIBUTION 0
+// the actual dimension of the task; this could be given in the constructor from outside, given the result of the joint to jacobian solver, or else
+#define TS_actual_dim 6
 
 using namespace KDL;
 
@@ -31,7 +33,7 @@ ChainIkSolverVel_MT_FP_JL::ChainIkSolverVel_MT_FP_JL(const Chain& chain, double 
     maxiter(maxiter),
     nj(chain.getNrOfJoints()),
     jac_kdl(nj),
-    ts_dim(TS_dim),
+    ts_dim(TS_actual_dim),
     fksolver(chain),
     jnt2jac(chain),
     lambda(0.0),
@@ -39,7 +41,9 @@ ChainIkSolverVel_MT_FP_JL::ChainIkSolverVel_MT_FP_JL(const Chain& chain, double 
     model_tolerance_(0.0),
     use_ee_task_(false)
 {
-    assert(nj == chain.getNrOfJoints());
+#if KDL_CHAIN_IKSOLVERVEL_MT_FP_JL_FIXED_DIM > 0
+    assert(nj == JS_dim);
+#endif
     
     jac = MatrixTJ::Zero(ts_dim,nj);
     weightTS = MatrixT::Identity(ts_dim,ts_dim);
