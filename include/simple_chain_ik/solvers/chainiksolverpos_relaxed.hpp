@@ -130,6 +130,7 @@ public:
      * @return The old value for this flag.
      */
     bool useWeigthEndEffector(bool s = false) {bool tmp(use_ee_task_); use_ee_task_ = s; return tmp;}
+
     
 private:
     const Chain chain;
