@@ -1,3 +1,7 @@
+// Copyright (c) 2017, Centro di Ricerca "E. Piaggio", University of Pisa
+// All rights reserved.
+// Copyright (c) 2017, George Jose Pollayil <gpollayil at gmail dot com>
+// Copyright (c) 2017, Mathew Jose Pollayil <mathewjosepollayil at gmail dot com>
 // Copyright  (C)  2016 Hamal Marino <hamal dot marino at gmail dot com>
 // Copyright  (C)  2007-2008  Ruben Smits <ruben dot smits at mech dot kuleuven dot be>
 // Copyright  (C)  2008  Mikael Mayer
