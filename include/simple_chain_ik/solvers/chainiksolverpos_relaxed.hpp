@@ -79,6 +79,17 @@ public:
     ~ChainIkSolverPos_relaxed();
     
     /**
+     * @brief Computes angular velocity from the rotation matrices for two frames
+     * 
+     * @param frame_1 first frame
+     * @param frame_2 second frame
+     * @param ang_vel computed angular velocity
+     * 
+     * @return false if something goes wrong during the procedure, else return true
+     */
+    void getAngularVelFromPoses(const Frame& frame_1, const Frame& frame_2, Vector& ang_vel);
+    
+    /**
      * @brief Compute joint values for the input pose, starting from the initial guess.
      * 
      * @param q_init joints initial guess
