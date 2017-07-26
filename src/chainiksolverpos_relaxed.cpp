@@ -29,6 +29,7 @@
 #include <iostream>
 #include <kdl/frames_io.hpp>
 #include <math.h>
+#include <Eigen/Core>
 
 #define DEBUG 0
 
@@ -42,6 +43,34 @@ ChainIkSolverPos_relaxed::ChainIkSolverPos_relaxed(const Chain& chain, ChainFkSo
 {
     q_min.data.setConstant(std::numeric_limits<double>::min());
     q_max.data.setConstant(std::numeric_limits<double>::max());
+}
+
+void ChainIkSolverPos_relaxed::getAngularVelFromPoses(const Frame& frame_1, const Frame& frame_2, Vector& ang_vel){
+    // Getting rotation matrices from frames
+    Rotation r_1 = frame_1.M;
+    Rotation r_2 = frame_2.M;
+
+    // Computing R(1)R(0)'
+    Rotation R_Rtranspose = r_2*r_1.Inverse();
+
+    // Getting axis and angle of R(1)R(0)'
+    Vector axis = R_Rtranspose.GetRot();        // rotation axis
+    double angle = R_Rtranspose.GetRotAngle(axis);     // redundant: both angle and rotation axis
+
+    // Computing skew matrix of axis
+    Eigen::Matrix<double,3,3> skew_axis;
+    skew_symmetric(axis, skew_axis);
+
+    // Computing skew angular velocity
+    Eigen::Matrix<double,3,3> skew_ang = skew_axis*angle;
+
+    // Extraction angular velocity from previous skew matrix
+    Vector ang_vel_tmp;
+    ang_vel_tmp(0) = skew_ang(2, 1);
+    ang_vel_tmp(1) = skew_ang(0, 2);
+    ang_vel_tmp(2) = skew_ang(1, 0);
+
+    ang_vel = ang_vel_tmp;
 }
 
 int ChainIkSolverPos_relaxed::CartToJnt(const JntArray& q_init, const Frame& p_in, JntArray& q_out)
@@ -59,6 +88,17 @@ int ChainIkSolverPos_relaxed::CartToJnt(const JntArray& q_init, const Frame& p_i
             return (error = E_FKSOLVERPOS_FAILED);
         
         delta_twist = diff(f,p_in);
+
+        // WARNING: diff does not give a twist -> check KDL Reference for more info.
+        if(f.M != p_in.M){
+            #if DEBUG>1
+            std::cout << "I ENTERED ANGULAR VELOCITY COMPUTATION AND CHANGE!" << std::endl;
+            #endif
+            Vector angular_vel;
+            getAngularVelFromPoses(f, p_in, angular_vel);
+            delta_twist.rot = angular_vel;
+        }
+
         
         /// apply weighting to the task for checking the completion
         if(use_ee_task_)
