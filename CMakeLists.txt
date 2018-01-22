@@ -31,8 +31,8 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 ## System dependencies are found with CMake's conventions
-find_package(Eigen3 REQUIRED)
-message("EIGEN3_LIBRARIES = ${EIGEN3_INCLUDE_DIR} - version = ${EIGEN3_VERSION}")
+# find_package(Eigen3 REQUIRED)
+# message("EIGEN3_LIBRARIES = ${EIGEN3_INCLUDE_DIR} - version = ${EIGEN3_VERSION}")
 
 
 ## Uncomment this if the package has a setup.py. This macro ensures

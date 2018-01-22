@@ -25,6 +25,19 @@
 #include <kdl/chainiksolver.hpp>
 #include <kdl/chainfksolver.hpp>
 #include <kdl/solveri.hpp>
+#include <Eigen/Core>
+
+inline void skew_symmetric(KDL::Vector &v_, Eigen::Matrix<double,3,3> &skew_mat_)
+{
+    skew_mat_ = Eigen::Matrix<double,3,3>::Zero();
+    
+    skew_mat_(0,1) = -v_(2);
+    skew_mat_(0,2) =  v_(1);
+    skew_mat_(1,0) =  v_(2);
+    skew_mat_(1,2) = -v_(0);
+    skew_mat_(2,0) = -v_(1);
+    skew_mat_(2,1) =  v_(0);
+}
 
 namespace KDL
 {
@@ -64,6 +77,17 @@ public:
     ChainIkSolverPos_relaxed(const Chain& chain, ChainFkSolverPos& fksolver, ChainIkSolverVel& iksolver, unsigned int maxiter=100, double eps=1e-6);
     
     ~ChainIkSolverPos_relaxed();
+    
+    /**
+     * @brief Computes angular velocity from the rotation matrices for two frames
+     * 
+     * @param frame_1 first frame
+     * @param frame_2 second frame
+     * @param ang_vel computed angular velocity
+     * 
+     * @return false if something goes wrong during the procedure, else return true
+     */
+    void getAngularVelFromPoses(const Frame& frame_1, const Frame& frame_2, Vector& ang_vel);
     
     /**
      * @brief Compute joint values for the input pose, starting from the initial guess.
@@ -106,6 +130,7 @@ public:
      * @return The old value for this flag.
      */
     bool useWeigthEndEffector(bool s = false) {bool tmp(use_ee_task_); use_ee_task_ = s; return tmp;}
+
     
 private:
     const Chain chain;
