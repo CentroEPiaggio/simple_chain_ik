@@ -45,6 +45,10 @@ ChainIkSolverPos_relaxed::ChainIkSolverPos_relaxed(const Chain& chain, ChainFkSo
     q_max.data.setConstant(std::numeric_limits<double>::max());
 }
 
+void ChainIkSolverPos_relaxed::updateInternalDataStructures() {
+
+}
+
 void ChainIkSolverPos_relaxed::getAngularVelFromPoses(const Frame& frame_1, const Frame& frame_2, Vector& ang_vel){
     // Getting rotation matrices from frames
     Rotation r_1 = frame_1.M;

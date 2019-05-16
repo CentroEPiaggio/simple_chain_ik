@@ -61,6 +61,10 @@ ChainIkSolverVel_MT_FP_JL::ChainIkSolverVel_MT_FP_JL(const Chain& chain, double 
     xi = VectorT::Zero(ts_dim,1);
 }
 
+void ChainIkSolverVel_MT_FP_JL::updateInternalDataStructures() {
+
+}
+
 void ChainIkSolverVel_MT_FP_JL::setJointLimits(const VectorJ& lower_bound, const VectorJ& upper_bound)
 {
 //     // either assert here or do everything in header file

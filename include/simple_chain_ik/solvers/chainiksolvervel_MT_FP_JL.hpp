@@ -74,6 +74,9 @@ public:
     
     /// Destructor
     ~ChainIkSolverVel_MT_FP_JL() {};
+
+    // Update Internals (KDL version >= 1.4 requires this to be defined as it is a pure virtual in the base)
+    virtual void updateInternalDataStructures();
     
     /**
     * Find an output joint velocity \a qdot_out, given a starting joint pose

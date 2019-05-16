@@ -77,6 +77,9 @@ public:
     ChainIkSolverPos_relaxed(const Chain& chain, ChainFkSolverPos& fksolver, ChainIkSolverVel& iksolver, unsigned int maxiter=100, double eps=1e-6);
     
     ~ChainIkSolverPos_relaxed();
+
+    // Update Internals (KDL version >= 1.4 requires this to be defined as it is a pure virtual in the base)
+    virtual void updateInternalDataStructures();
     
     /**
      * @brief Computes angular velocity from the rotation matrices for two frames
